@@ -1,0 +1,54 @@
+
+Notes testing BDQC
+
+====================================
+
+Create the classes:
+
+cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
+perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib
+
+If you update the class definition in etc/BDQC.classes or update the code generator,
+then you can refresh a class with:
+
+cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
+perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.KB
+
+or all of them with:
+
+cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
+perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib
+
+
+
+====================================
+
+Run the code:
+
+cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
+
+cd testdata
+unzip test1_UniformQlogFiles.zip
+unzip test2_UniformQlogFiles_1outlier.zip
+
+perl ../bin/bdqc.pl --help
+
+#### Run a test of a set of 40 highly similar very small qlog files
+rm  test1_UniformQlogFiles.qckb.storable
+perl ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --dataDirectory test1_UniformQlogFiles
+perl ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --calcSig --collate --calcModel
+perl ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --showOutliers
+
+#### A second test of the same set as above with one file manually edited to simulate a difference
+rm  test2_UniformQlogFiles_1outlier.qckb.storable
+perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --dataDirectory test2_UniformQlogFiles_1outlier
+perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --calcSig --collate --calcModel
+perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --showOutliers
+
+#### A third test of reading some Perl pm files
+rm test3_pmlib.qckb.storable
+perl ../bin/bdqc.pl --kbRootPath test3_pmlib --dataDirectory C:\Users\edeutsch\Documents\SVN\Proteomics\lib
+perl ../bin/bdqc.pl --kbRootPath test3_pmlib --calcSig --collate --calcModel
+perl ../bin/bdqc.pl --kbRootPath test3_pmlib --showOutliers
+
+
