@@ -271,7 +271,7 @@ sub create {
 
       #### If the value is not null, then add to the variance
       if ( defined($value) && defined($stats->{mean}) ) {
-        $stats->{variance} += ( ($value - $stats->{mean})^2 );
+        $stats->{variance} += ( ($value - $stats->{mean})**2 );
       }
 
       my $siqr = $stats->{siqr} || $stats->{stdev} || 1;

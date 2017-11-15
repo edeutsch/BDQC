@@ -226,14 +226,20 @@ sub calcModels {
   my $qckb = $self->getQckb();
   $self->setIsChanged(1);
   use BDQC::VectorModel;
+  use BDQC::HistogramModel;
 
   #### For each fileType, signature, and attribute, build a model of the observed data
   foreach my $fileType ( keys(%{$qckb->{fileTypes}}) ) {
     foreach my $signature ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}}) ) {
       foreach my $attribute ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}}) ) {
         my $values = $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{values};
-        #print "$signature.$attribute: ".join(",",@{$values})."\n";
-        my $model = BDQC::VectorModel->new( vector=>$values );
+        my $model;
+        if ( $values->[0] && $values->[0] =~ /^HASH\(/ ) {
+          $model = BDQC::HistogramModel->new( histograms=>$values );
+        } else {
+         #print "$signature.$attribute: ".join(",",@{$values})."\n";
+          $model = BDQC::VectorModel->new( vector=>$values );
+        }
         my $result = $model->create();
         if ( $result->{status} eq 'OK' ) {
           $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{model} = $result->{model};
@@ -303,12 +309,19 @@ sub calcSignatures {
   $self->setIsChanged(1);
 
   use BDQC::FileSignature::Text;
+  use BDQC::FileSignature::Binary;
 
   my %knownExtensions = (
     "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
     "fasta" => { specificTypeName=>'FASTA', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
     "qlog" => { specificTypeName=>'qlog', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
     "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML" ] },
+    "jpg" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
+    "jpeg" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
+    "JPG" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
+    "JPEG" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
+    "raw" => { specificTypeName=>'raw', genericType=>'binary', signatureList=>[ "FileSignature::Binary" ] },
+    "RAW" => { specificTypeName=>'raw', genericType=>'binary', signatureList=>[ "FileSignature::Binary" ] },
   );
 
   my $nFiles = 0;
