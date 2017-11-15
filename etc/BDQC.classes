@@ -46,8 +46,18 @@ class BDQC.FileSignature.Text
   method calcSignature
     parameter attribute filePath
     returns object Response
+class BDQC.FileSignature.Binary
+  attribute string filePath
+  method calcSignature
+    parameter attribute filePath
+    returns object Response
 class BDQC.VectorModel
   attribute string vector
   method create
     parameter attribute vector
+    returns object Response
+class BDQC.HistogramModel
+  attribute string histograms
+  method create
+    parameter attribute histograms
     returns object Response
