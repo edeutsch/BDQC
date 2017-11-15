@@ -3,26 +3,6 @@ Notes testing BDQC
 
 ====================================
 
-Create the classes:
-
-cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
-perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib
-
-If you update the class definition in etc/BDQC.classes or update the code generator,
-then you can refresh a class with:
-
-cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
-perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib --class BDQC.KB
-
-or all of them with:
-
-cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
-perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib
-
-
-
-====================================
-
 Run the code:
 
 cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
@@ -51,4 +31,9 @@ perl ../bin/bdqc.pl --kbRootPath test3_pmlib --dataDirectory C:\Users\edeutsch\D
 perl ../bin/bdqc.pl --kbRootPath test3_pmlib --calcSig --collate --calcModel
 perl ../bin/bdqc.pl --kbRootPath test3_pmlib --showOutliers
 
+#### A fourth test of reading some jpg files
+rm test4_jpgs.qckb.storable
+perl ../bin/bdqc.pl --kbRootPath test4_jpgs --dataDirectory C:\local\pictures\2017\02_February
+perl ../bin/bdqc.pl --kbRootPath test4_jpgs --calcSig --collate --calcModel
+perl ../bin/bdqc.pl --kbRootPath test4_jpgs --showOutliers
 

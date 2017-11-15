@@ -19,30 +19,3 @@ or all of them with:
 cd C:\Users\edeutsch\Documents\SVN\BDQC\trunk
 perl bin/generatePerlClasses.pl --input etc/BDQC.classes --dest lib
 
-
-
-====================================
-
-Run the code:
-
-cd C:\Users\edeutsch\Documents\SVN\Proteomics\bin\BDQC
-
-perl bdqc.pl --help
-
-
-rm data.qckb.storable
-perl bdqc.pl --kbRootPath data --dataDirectory data
-perl bdqc.pl --kbRootPath data --calcSig --collate --calcModel
-perl bdqc.pl --kbRootPath data --showOutliers
-
-rm dataChg1File.qckb.storable
-perl bdqc.pl --kbRootPath dataChg1File --dataDirectory dataChg1File
-perl bdqc.pl --kbRootPath dataChg1File --calcSig --collate --calcModel
-perl bdqc.pl --kbRootPath dataChg1File --showOutliers
-
-rm testpmlib.qckb.storable
-perl bdqc.pl --kbRootPath testpmlib --dataDirectory \Users\edeutsch\Documents\SVN\Proteomics\lib
-perl bdqc.pl --kbRootPath testpmlib --calcSig --collate --calcModel
-perl bdqc.pl --kbRootPath testpmlib --showOutliers
-
-
