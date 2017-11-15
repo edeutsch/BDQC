@@ -147,8 +147,10 @@ sub calcSignature {
   while ( ! $done ) {
     my $bytesRead = read(INFILE,$chunk,1024);
     last unless ( $bytesRead );
-    for (my $i=0; $i<$bytesRead; $i++) {
-      my $ascii = ord(substr($chunk,$i,1));
+#    for (my $i=0; $i<$bytesRead; $i++) {
+#      my $ascii = ord(substr($chunk,$i,1));
+    my @ascii = unpack("C*",$chunk);
+    foreach my $ascii ( @ascii ) {
       $charHistogram->{$ascii}++;
     }
     $done = 1 if ( $bytesRead < 1024 );
