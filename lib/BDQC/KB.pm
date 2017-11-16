@@ -310,6 +310,7 @@ sub calcSignatures {
 
   use BDQC::FileSignature::Text;
   use BDQC::FileSignature::Binary;
+  use Time::HiRes qw(gettimeofday tv_interval);
 
   my %knownExtensions = (
     "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
@@ -348,7 +349,11 @@ sub calcSignatures {
     foreach my $signatureName ( @{$signatureList} ) {
       my $moduleName = "BDQC::$signatureName";
       my $signature = $moduleName->new( filePath=>$filePath );
+      #my $t0 = [gettimeofday];
       my $result = $signature->calcSignature();
+      #my $t1 = [gettimeofday];
+      #my $elapsed = tv_interval($t0,$t1);
+      #print "$fileTag  $elapsed\n";
       if ( $result->{status} eq 'OK' ) {
         $signatures->{$signatureName} = $result->{signature};
       } else {
