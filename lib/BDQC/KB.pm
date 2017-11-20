@@ -430,7 +430,6 @@ sub collateData {
   foreach my $fileTag ( keys(%{$qckb->{files}}) ) {
     $nFiles++;
     my $signatures = $qckb->{files}->{$fileTag}->{signatures};
-    my $fileTag = $signatures->{tracking}->{fileTag};
     my $fileTypeName = $signatures->{fileType}->{typeName};
 
     unless ( $qckb->{fileTypes}->{$fileTypeName} ) {
@@ -528,7 +527,7 @@ sub createKb {
   $qckb->{dataDirectories} = [];
 
   $qckb->{files} = {};
-  $qckb->{filetypes} = {};
+  $qckb->{fileTypes} = {};
   $qckb->{models} = [];
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
@@ -656,10 +655,123 @@ sub getOutliers {
       my $signature = $outlier->{signature};
       my $attribute = $outlier->{attribute};
       my $value = $outlier->{value};
+      my $deviation = $outlier->{deviation}->{deviation};
       $value = '(null)' if ( ! defined($value) );
-      print "  $signature.$attribute: Value $value is an outlier\n";
+      print "  $signature.$attribute: Value $value is an outlier at $deviation times SIQR\n";
     }
   }
+
+  #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
+  {
+  if ( ! $isImplemented ) {
+    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"Method${METHOD}NotImplemented", message=>"Method $METHOD has not yet be implemented", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
+  }
+
+  #### Update the status codes and return
+  $response->setState( status=>'OK', message=>"Method $METHOD completed normally") if ( $response->{status} eq 'NOTSET' );
+  print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $debug );
+  }
+  return $response;
+}
+
+
+sub importSignatures {
+###############################################################################
+# importSignatures
+###############################################################################
+  my $METHOD = 'importSignatures';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+  my %parameters = @_;
+
+  #### Define standard parameters
+  my ( $response, $debug, $verbose, $quiet, $testonly, $outputDestination, $rmiServer );
+
+  {
+  #### Set up a response object
+  $response = BDQC::Response->new();
+  $response->setState( status=>'NOTSET', message=>"Status not set in method $METHOD");
+
+  #### Process standard parameters
+  $debug = processParameters( name=>'debug', required=>0, allowUndef=>0, default=>0, overrideIfFalse=>$DEBUG, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $verbose = processParameters( name=>'verbose', required=>0, allowUndef=>0, default=>0, overrideIfFalse=>$VERBOSE, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $quiet = processParameters( name=>'quiet', required=>0, allowUndef=>0, default=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $testonly = processParameters( name=>'testonly', required=>0, allowUndef=>0, default=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $outputDestination = processParameters( name=>'outputDestination', required=>0, allowUndef=>0, default=>'STDERR', parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $rmiServer = processParameters( name=>'rmiServer', required=>0, allowUndef=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
+  }
+  #### Process specific parameters
+  my $inputFile = processParameters( name=>'inputFile', required=>1, allowUndef=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  #### Die if any unexpected parameters are passed
+  my $unexpectedParameters = '';
+  foreach my $parameter ( keys(%parameters) ) { $unexpectedParameters .= "ERROR: unexpected parameter '$parameter'\n"; }
+  die("CALLING ERROR [$METHOD]: $unexpectedParameters") if ($unexpectedParameters);
+
+  #### Return if there was a problem with the required parameters
+  return $response if ( $response->{errorCode} =~ /MissingParameter/i );
+
+  #### Set the default state to not implemented. Do not change this. Override later
+  my $isImplemented = 0;
+
+  #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
+
+  $isImplemented = 1;
+
+  #### If the file exists, read it
+  if ( -e $inputFile ) {
+    $response->logEvent( level=>'INFO', minimumVerbosity=>0, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+      message=>"Importing BDQC data into KB from '$inputFile'");
+    my $qckb =  $self->getQckb();
+
+    if ( $inputFile =~ /\.gz$/ ) {
+      $inputFile = "zcat $inputFile |";
+    }
+
+    if ( open(INFILE,$inputFile) ) {
+      my $jsonData = '';
+      while ( my $line = <INFILE> ) {
+        $jsonData .= $line;
+      }
+      close(INFILE);
+      my $inputBdqc = decode_json($jsonData);
+      my $iFile = 0;
+      foreach my $file ( keys(%{$inputBdqc}) ) {
+        my $tmp = {};
+        my $components = $self->splitFilePath($file);
+        my $fileTag = "import1:$file";
+	    my $tracking = { fileTag=>$fileTag, filePath=>$file, filename=>$components->{filename},
+          dataDirectory=>$components->{directory}, dataDirectoryId=>'import1', isNew=>1 };
+        $tmp->{tracking} = $tracking;
+
+        $tmp->{extrinsic}->{mtime} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{mtime};
+        $tmp->{extrinsic}->{size} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{size};
+        $tmp->{extrinsic}->{extension} = $components->{extension};
+        $tmp->{extrinsic}->{uncompressedExtension} = $components->{uncompressedExtension};
+        $tmp->{extrinsic}->{isCompressed} = $components->{isCompressed};
+        $tmp->{extrinsic}->{filename} = $components->{filename};
+        $tmp->{extrinsic}->{basename} = $components->{basename};
+        $tmp->{extrinsic}->{readable} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{readable};
+        $tmp->{fileType}->{typeName} = $components->{uncompressedExtension};
+
+        #delete($tmp->{signatures}->{"bdqc.builtin.tabular"});
+        $qckb->{files}->{$fileTag}->{signatures} = $tmp;
+        $iFile++;
+        #last if ( $iFile > 30 );
+      }
+
+      $self->setIsChanged(1);
+
+    } else {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"ImportFileCannotBeOpened", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        message=>"Input file '$inputFile' exists but cannot be opened.");
+    }
+    
+  } else {
+    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"ImportFileDoesNotExist", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+      message=>"Input file '$inputFile' does not exist.");
+  }
+
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -1069,6 +1181,54 @@ sub show {
 }
 
 
+sub splitFilePath {
+###############################################################################
+# splitFilePath
+###############################################################################
+  my $METHOD = 'splitFilePath';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+  my $filePath = shift;
+
+  my %components;
+
+  #### Parse off the directory
+  my @pathParts = split(/\//,$filePath);
+  my $directory = join("\/",@pathParts[0..($#pathParts-1)]);
+  my $entry = $pathParts[$#pathParts];
+
+  #### Parse the filename into pieces
+  my @parts = split(/\./,$entry);
+  my $nParts = scalar(@parts);
+  my $basename = '';
+  my $extension = '';
+  my $uncompressedExtension = '';
+  my $isCompressed = 0;
+  if ( $nParts == 1) {
+    $basename = $entry;
+  } else {
+    $extension = $parts[$nParts-1];
+    my %compressedExtensions = ( gz=>1, zip=>1, bz2=>1 );
+    if ( $compressedExtensions{$extension} ) {
+      $isCompressed = 1;
+      if ( $nParts == 2 ) {
+        $basename = $parts[0];
+      } else {
+        $uncompressedExtension = $parts[$nParts-2];
+        $basename = join(".",@parts[0..$nParts-3]);
+      }
+    } else {
+      $uncompressedExtension = $extension;
+      $basename = join(".",@parts[0..$nParts-2]);
+    }
+  }
+
+  my $components = { directory=>$directory, basename=>$basename, extension=>$extension, uncompressedExtension=>$uncompressedExtension,
+    isCompressed=>$isCompressed, filename=>$entry };
+
+  print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $DEBUG );
+  return $components;
+}
 
 ###############################################################################
 1;
