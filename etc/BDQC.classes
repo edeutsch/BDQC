@@ -33,6 +33,9 @@ class BDQC.KB
   method scanDataPath
     parameter attribute dataDirectory requiredOrAvailable
     returns object Response
+  method importSignatures
+    parameter string inputFile required
+    returns object Response
   method calcSignatures
     returns object Response
   method calcModels
