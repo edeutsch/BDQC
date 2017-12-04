@@ -234,7 +234,7 @@ sub calcModels {
       foreach my $attribute ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}}) ) {
         my $values = $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{values};
         my $model;
-        if ( $values->[0] && $values->[0] =~ /^HASH\(/ ) {
+        if ( ref($values->[0]) eq 'HASH' ) {
           $model = BDQC::HistogramModel->new( histograms=>$values );
         } else {
          #print "$signature.$attribute: ".join(",",@{$values})."\n";
@@ -754,10 +754,31 @@ sub importSignatures {
         $tmp->{extrinsic}->{readable} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{readable};
         $tmp->{fileType}->{typeName} = $components->{uncompressedExtension};
 
+        if ( $inputBdqc->{$file}->{"bdqc.builtin.tabular"} ) {
+          my $tabular = $inputBdqc->{$file}->{"bdqc.builtin.tabular"};
+          $tmp->{tabular}->{"character_histogram"} = $tabular->{"character_histogram"};
+          foreach my $attribute ( keys(%{$tabular->{tabledata}}) ) {
+            my $value = $tabular->{tabledata}->{$attribute};
+            if ( ref($value) eq 'HASH' ) {
+              print "$attribute is a HASH\n";
+            } elsif ( ref($value) eq 'ARRAY' ) {
+              if ( $attribute eq 'columns' ) {
+              } else {
+                print "$attribute is a ARRAY\n";
+              }
+            } elsif ( ref($value) eq '' || ref($value) eq 'JSON::PP::Boolean' ) {
+              $tmp->{tabular}->{"tabular.$attribute"} = $value;
+            } else {
+              print "For $attribute, ref is '".ref($value)."'\n";
+            }
+          }
+        }
+
+
         #delete($tmp->{signatures}->{"bdqc.builtin.tabular"});
         $qckb->{files}->{$fileTag}->{signatures} = $tmp;
         $iFile++;
-        #last if ( $iFile > 30 );
+        #last if ( $iFile > 100 );
       }
 
       $self->setIsChanged(1);
