@@ -64,3 +64,13 @@ class BDQC.HistogramModel
   method create
     parameter attribute histograms
     returns object Response
+class BDQC.FileSignature.XML
+  attribute string filePath
+  method calcSignature
+    parameter attribute filePath
+    returns object Response
+class BDQC.FileSignature.Tabular
+  attribute string filePath
+  method calcSignature
+    parameter attribute filePath
+    returns object Response
