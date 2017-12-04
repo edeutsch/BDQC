@@ -8,7 +8,6 @@
 # Description : This program is a simple interface to the BDQC software
 #
 #  bdqc.pl --help
-#  bdqc.pl --qckbRoot testqc --dataPath test1
 #
 ###############################################################################
 
@@ -37,6 +36,7 @@ Options:
   --kbRootPath x      Full or relative root path QC KB results files (file extension will be added)
   --dataDirectory x   Full or relative directory path of the data to be scanned
   --calcSignatures    Calculate file signatures for all new files in the QC KB
+  --importSignatures x Import .bdqc signatures from the specified external file
   --collateData       Collate all the data from individual files in preparation for modeling
   --calcModels        Calculate file signature models for all files in the QC KB
   --showOutliers      Show all outliers in the QC KB
@@ -48,8 +48,8 @@ EOU
 #### Process options and print usage if an illegal options is provided
 my %OPTIONS;
 unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
-                   "kbRootPath:s","dataDirectory:s","calcSignatures","collateData",
-                   "calcModels", "showOutliers", 
+                   "kbRootPath:s", "dataDirectory:s", "calcSignatures", "collateData",
+                   "calcModels", "showOutliers", "importSignatures:s", 
   )) {
   print "$USAGE";
   exit 2;
@@ -103,6 +103,15 @@ sub main {
 	if ( $result->{status} ne 'OK' ) {
 	  print $result->show();
       exit 11;
+	}
+  }
+
+  #### Important signatures from an external file into the KB
+  if ( $OPTIONS{importSignatures} ) {
+    my $result = $qckb->importSignatures( inputFile=>$OPTIONS{importSignatures}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
+	if ( $result->{status} ne 'OK' ) {
+	  print $result->show();
+      exit 12;
 	}
   }
 

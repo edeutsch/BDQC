@@ -9,7 +9,6 @@ package BDQC::KB;
 
 use strict;
 use warnings;
-use Data::Dumper;
 
 use BDQC::Response qw(processParameters);
 
@@ -235,7 +234,7 @@ sub calcModels {
       foreach my $attribute ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}}) ) {
         my $values = $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{values};
         my $model;
-        if ( $values->[0] && $values->[0] =~ /^HASH\(/ ) {
+        if ( ref($values->[0]) eq 'HASH' ) {
           $model = BDQC::HistogramModel->new( histograms=>$values );
         } else {
          #print "$signature.$attribute: ".join(",",@{$values})."\n";
@@ -311,17 +310,13 @@ sub calcSignatures {
 
   use BDQC::FileSignature::Text;
   use BDQC::FileSignature::Binary;
-  use BDQC::FileSignature::XML;
-  use BDQC::FileSignature::Tabular;
   use Time::HiRes qw(gettimeofday tv_interval);
 
   my %knownExtensions = (
-    "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular", "FileSignature::Text" ] },
+    "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
     "fasta" => { specificTypeName=>'FASTA', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
     "qlog" => { specificTypeName=>'qlog', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
-    "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
-    "mzML" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
-    "txt" => { specificTypeName=>'txt', genericType=>'txt', signatureList=>[ "FileSignature::Text" ] },
+    "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML" ] },
     "jpg" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
     "jpeg" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
     "JPG" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
@@ -329,15 +324,6 @@ sub calcSignatures {
     "raw" => { specificTypeName=>'raw', genericType=>'binary', signatureList=>[ "FileSignature::Binary" ] },
     "RAW" => { specificTypeName=>'raw', genericType=>'binary', signatureList=>[ "FileSignature::Binary" ] },
   );
-
-  eval {
-    require XML::Parser;
-  };
-  if ( $@ ) {
-    print STDERR "XML::Parser not found, reverting to TXT analysis only\n";
-    $knownExtensions{xml}->{signatureList} = [ "FileSignature::Text" ];
-    $knownExtensions{mzML}->{signatureList} = [ "FileSignature::Text" ];
-  }
 
   my $nFiles = 0;
 
@@ -356,9 +342,7 @@ sub calcSignatures {
       $fileTypeName = $knownExtension->{specificTypeName};
     } else {
       #$signatureList = [ 'FileSignature::UnknownFiletype' ];
-# TODO file type check - binary vs text; 
-#      $signatureList = [ 'FileSignature::Text' ];
-      $signatureList = [ 'FileSignature::Binary' ];
+      $signatureList = [ 'FileSignature::Text' ];
     }
     $signatures->{fileType}->{typeName} = $fileTypeName;
 
@@ -454,7 +438,6 @@ sub collateData {
 
     if ( $signatures->{tracking}->{isNew} ) {
       push(@{$qckb->{fileTypes}->{$fileTypeName}->{fileTagList}},$fileTag);
-    } else {
     }
   }
 
@@ -757,7 +740,7 @@ sub importSignatures {
         my $tmp = {};
         my $components = $self->splitFilePath($file);
         my $fileTag = "import1:$file";
-	      my $tracking = { fileTag=>$fileTag, filePath=>$file, filename=>$components->{filename},
+	    my $tracking = { fileTag=>$fileTag, filePath=>$file, filename=>$components->{filename},
           dataDirectory=>$components->{directory}, dataDirectoryId=>'import1', isNew=>1 };
         $tmp->{tracking} = $tracking;
 
@@ -771,10 +754,31 @@ sub importSignatures {
         $tmp->{extrinsic}->{readable} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{readable};
         $tmp->{fileType}->{typeName} = $components->{uncompressedExtension};
 
+        if ( $inputBdqc->{$file}->{"bdqc.builtin.tabular"} ) {
+          my $tabular = $inputBdqc->{$file}->{"bdqc.builtin.tabular"};
+          $tmp->{tabular}->{"character_histogram"} = $tabular->{"character_histogram"};
+          foreach my $attribute ( keys(%{$tabular->{tabledata}}) ) {
+            my $value = $tabular->{tabledata}->{$attribute};
+            if ( ref($value) eq 'HASH' ) {
+              print "$attribute is a HASH\n";
+            } elsif ( ref($value) eq 'ARRAY' ) {
+              if ( $attribute eq 'columns' ) {
+              } else {
+                print "$attribute is a ARRAY\n";
+              }
+            } elsif ( ref($value) eq '' || ref($value) eq 'JSON::PP::Boolean' ) {
+              $tmp->{tabular}->{"tabular.$attribute"} = $value;
+            } else {
+              print "For $attribute, ref is '".ref($value)."'\n";
+            }
+          }
+        }
+
+
         #delete($tmp->{signatures}->{"bdqc.builtin.tabular"});
         $qckb->{files}->{$fileTag}->{signatures} = $tmp;
         $iFile++;
-        #last if ( $iFile > 30 );
+        #last if ( $iFile > 100 );
       }
 
       $self->setIsChanged(1);
@@ -788,6 +792,7 @@ sub importSignatures {
     $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"ImportFileDoesNotExist", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
       message=>"Input file '$inputFile' does not exist.");
   }
+
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
