@@ -310,13 +310,17 @@ sub calcSignatures {
 
   use BDQC::FileSignature::Text;
   use BDQC::FileSignature::Binary;
+  use BDQC::FileSignature::XML;
+  use BDQC::FileSignature::Tabular;
   use Time::HiRes qw(gettimeofday tv_interval);
 
   my %knownExtensions = (
     "tsv" => { specificTypeName=>'tsv', genericType=>'tabular', signatureList=>[ "FileSignature::Tabular" ] },
     "fasta" => { specificTypeName=>'FASTA', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
     "qlog" => { specificTypeName=>'qlog', genericType=>'text', signatureList=>[ "FileSignature::Text" ] },
-    "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML" ] },
+    "txt" => { specificTypeName=>'txt', genericType=>'txt', signatureList=>[ "FileSignature::Text" ] },
+    "xml" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
+    "mzML" => { specificTypeName=>'xml', genericType=>'xml', signatureList=>[ "FileSignature::XML", "FileSignature::Text" ] },
     "jpg" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
     "jpeg" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
     "JPG" => { specificTypeName=>'jpg', genericType=>'image', signatureList=>[ "FileSignature::Binary" ] },
@@ -324,6 +328,15 @@ sub calcSignatures {
     "raw" => { specificTypeName=>'raw', genericType=>'binary', signatureList=>[ "FileSignature::Binary" ] },
     "RAW" => { specificTypeName=>'raw', genericType=>'binary', signatureList=>[ "FileSignature::Binary" ] },
   );
+
+  eval {
+    require XML::Parser;
+  };
+  if ( $@ ) {
+    print STDERR "XML::Parser not found, reverting to TXT analysis only\n";
+    $knownExtensions{xml}->{signatureList} = [ "FileSignature::Text" ];
+    $knownExtensions{mzML}->{signatureList} = [ "FileSignature::Text" ];
+  }
 
   my $nFiles = 0;
 
