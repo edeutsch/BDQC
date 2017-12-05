@@ -1,9 +1,9 @@
 #!/usr/bin/perl
 #
 ###############################################################################
-# Program		bdqc.pl
-# Author		Eric Deutsch <edeutsch@systemsbiology.org>
-# Date			2017-11-06
+# Program        bdqc.pl
+# Author        Eric Deutsch <edeutsch@systemsbiology.org>
+# Date            2017-11-06
 #
 # Description : This program is a simple interface to the BDQC software
 #
@@ -82,73 +82,73 @@ sub main {
   #### If a KC QC file parameter was provided, see if there is already one to warm start with
   if ( $OPTIONS{kbRootPath} ) {
     my $result = $qckb->loadKb( kbRootPath=>$OPTIONS{kbRootPath}, skipIfFileNotFound=>1 );
-	if ( $result->{status} ne 'OK' ) {
-	  print $result->show();
+    if ( $result->{status} ne 'OK' ) {
+      print $result->show();
       exit 10;
-	}
+    }
   }
 
   #### Perform the scan of the dataPath
   if ( $OPTIONS{dataDirectory} ) {
     my $result = $qckb->scanDataPath( dataDirectory=>$OPTIONS{dataDirectory}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
-	if ( $result->{status} ne 'OK' ) {
-	  print $result->show();
+    if ( $result->{status} ne 'OK' ) {
+      print $result->show();
       exit 11;
-	}
+    }
   }
 
   #### Calculate signatures for all files in the KB
   if ( $OPTIONS{calcSignatures} ) {
     my $result = $qckb->calcSignatures( verbose => $verbose, quiet=>$quiet, debug=>$debug );
-	if ( $result->{status} ne 'OK' ) {
-	  print $result->show();
+    if ( $result->{status} ne 'OK' ) {
+      print $result->show();
       exit 11;
-	}
+    }
   }
 
   #### Important signatures from an external file into the KB
   if ( $OPTIONS{importSignatures} ) {
     my $result = $qckb->importSignatures( inputFile=>$OPTIONS{importSignatures}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
-	if ( $result->{status} ne 'OK' ) {
-	  print $result->show();
+    if ( $result->{status} ne 'OK' ) {
+      print $result->show();
       exit 12;
-	}
+    }
   }
 
   #### Calculate models and outliers for all files in the KB by filetype
   if ( $OPTIONS{collateData} ) {
     my $result = $qckb->collateData( verbose => $verbose, quiet=>$quiet, debug=>$debug );
-	if ( $result->{status} ne 'OK' ) {
-	  print $result->show();
+    if ( $result->{status} ne 'OK' ) {
+      print $result->show();
       exit 11;
-	}
+    }
   }
 
   #### Calculate models and outliers for all files in the KB by filetype
   if ( $OPTIONS{calcModels} ) {
     my $result = $qckb->calcModels( verbose => $verbose, quiet=>$quiet, debug=>$debug );
-	if ( $result->{status} ne 'OK' ) {
-	  print $result->show();
+    if ( $result->{status} ne 'OK' ) {
+      print $result->show();
       exit 11;
-	}
+    }
   }
 
   #### Show the deviations found in the data
   if ( $OPTIONS{showOutliers} ) {
     my $result = $qckb->getOutliers( verbose => $verbose, quiet=>$quiet, debug=>$debug );
-	if ( $result->{status} ne 'OK' ) {
-	  print $result->show();
+    if ( $result->{status} ne 'OK' ) {
+      print $result->show();
       exit 11;
-	}
+    }
   }
 
   #### If a KC QC file parameter was provided, write out the KB
   if ( $OPTIONS{kbRootPath} ) {
     my $result = $qckb->saveKb( kbRootPath=>$OPTIONS{kbRootPath}, verbose => $verbose, quiet=>$quiet, debug=>$debug, testonly=>$testonly );
-	if ( $result->{status} ne 'OK' ) {
-	  print $result->show();
+    if ( $result->{status} ne 'OK' ) {
+      print $result->show();
       exit 12;
-	}
+    }
   }
 
   return;

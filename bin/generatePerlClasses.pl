@@ -107,12 +107,12 @@ sub main {
   my $ooapiDefinition;
   if ( $OPTIONS{inputFile} ) {
     my $result = readOoapifile( inputFile=>$OPTIONS{inputFile}, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
-	if ( $result->{status} eq 'OK' ) {
-	  $ooapiDefinition = $result->{ooapiDefinition};
-	} else {
-	  $response->mergeResponse( sourceResponse=>$result );
+    if ( $result->{status} eq 'OK' ) {
+      $ooapiDefinition = $result->{ooapiDefinition};
+    } else {
+      $response->mergeResponse( sourceResponse=>$result );
       return $response;
-	}
+    }
   } else {
     $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'NoInputFile', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
        message=>"Parameter --inputFile must be provided. Use --help for more information");
@@ -123,12 +123,12 @@ sub main {
   my $destination = './';
   if ( $OPTIONS{destination} ) {
     if ( -d $destination ) {
-	  $destination = $OPTIONS{destination};
+      $destination = $OPTIONS{destination};
     } else {
       $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'InvalidDestination', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
         message=>"Destination '$destination' is not a valid directory");
       return $response;
-	}
+    }
   }
   $response->logEvent( level=>'INFO', minimumVerbosity=>1, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination,
     message=>"Writing to output directory '$destination'");
@@ -210,86 +210,86 @@ sub readOoapifile {
   while ( my $line = <INFILE> ) {
     #print $line;
     $line =~ s/[\r\n]//g;
-	push(@apiDefinitionLines,$line);
-	$iLine++;
+    push(@apiDefinitionLines,$line);
+    $iLine++;
 
-	#### If this is a nothing line or a comment line, then skip it
-	next if ( $line =~ /^\s*$/ );
-	next if ( $line =~ /^\s*\#/ );
+    #### If this is a nothing line or a comment line, then skip it
+    next if ( $line =~ /^\s*$/ );
+    next if ( $line =~ /^\s*\#/ );
 
-	#### Strip off comments at end of line
-	#$line =~ s/\#.*$//;
+    #### Strip off comments at end of line
+    #$line =~ s/\#.*$//;
 
     my $indentCount = 0;
-	if ( $line =~ /^(\s+)/ ) {
-	  my $indentChars = $1;
-	  $indentCount = length($indentChars);
-	  $line =~ s/^\s+//;
-	  if ( $indentChars =~ /\t/ ) {
-	    $tabCount++;
-		if ( $spaceCount > 0 ) {
+    if ( $line =~ /^(\s+)/ ) {
+      my $indentChars = $1;
+      $indentCount = length($indentChars);
+      $line =~ s/^\s+//;
+      if ( $indentChars =~ /\t/ ) {
+        $tabCount++;
+        if ( $spaceCount > 0 ) {
           $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'MixedSpacesAndTabs', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
             message=>"Line $iLine has a tab whereas previous lines were spaces. Must only use one");
           return $response;
-		}
-	  } else {
-	    $spaceCount++;
-		if ( $tabCount > 0 ) {
+        }
+      } else {
+        $spaceCount++;
+        if ( $tabCount > 0 ) {
           $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'MixedSpacesAndTabs', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
             message=>"Line $iLine has a space whereas previous lines were tabs. Must only use one");
           return $response;
-		}
-	  }
-	}
-	my @tokens = split(/\s+/,$line);
-	if ( $indentCount == 0 ) {
-	  $currentClass = '';
-	  if ( $tokens[0] eq 'apiVersion' ) {
-		$ooapiDefinition->{$tokens[0]} = $tokens[1];
-	  } elsif ( $tokens[0] eq 'option' ) {
-		$ooapiDefinition->{$tokens[1]} = $tokens[2] || 1;
-	  } elsif ( $tokens[0] eq 'class' ) {
-	    $currentClass = $tokens[1];
-		$ooapiDefinition->{classes}->{$currentClass}->{name} = $currentClass;
-		print "INFO: Reading definition for class $currentClass\n";
-	  } else {
-	    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'UnrecognizedToken', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+        }
+      }
+    }
+    my @tokens = split(/\s+/,$line);
+    if ( $indentCount == 0 ) {
+      $currentClass = '';
+      if ( $tokens[0] eq 'apiVersion' ) {
+        $ooapiDefinition->{$tokens[0]} = $tokens[1];
+      } elsif ( $tokens[0] eq 'option' ) {
+        $ooapiDefinition->{$tokens[1]} = $tokens[2] || 1;
+      } elsif ( $tokens[0] eq 'class' ) {
+        $currentClass = $tokens[1];
+        $ooapiDefinition->{classes}->{$currentClass}->{name} = $currentClass;
+        print "INFO: Reading definition for class $currentClass\n";
+      } else {
+        $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'UnrecognizedToken', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
           message=>"Unrecognized token '$tokens[0]' with indentCount=$indentCount at line $iLine (line=$line)");
         return $response;
-	  }
-	} elsif ( $indentCount == 2 ) {
-	  $currentMethod = '';
-	  if ( $tokens[0] eq 'attribute' ) {
-		$ooapiDefinition->{classes}->{$currentClass}->{attributes}->{$tokens[2]}->{datatype} = $tokens[1];
-		my $iToken = 3;
-		while ( $iToken <= scalar(@tokens) ) {
-		  $ooapiDefinition->{classes}->{$currentClass}->{attributes}->{$tokens[2]}->{$tokens[$iToken]} = 1;
-		  $iToken++;
-		}
-	  } elsif ( $tokens[0] eq 'constraint' ) {
-		$ooapiDefinition->{classes}->{$currentClass}->{constraints}->{$tokens[2]} = $tokens[1];
-	  } elsif ( $tokens[0] eq 'contains' ) {
-		$ooapiDefinition->{classes}->{$currentClass}->{contains}->{$tokens[2]} = $tokens[1];
-	  } elsif ( $tokens[0] eq 'method' ) {
-		$ooapiDefinition->{classes}->{$currentClass}->{methods}->{$tokens[1]}->{name} = $tokens[1];
-		$currentMethod = $tokens[1];
-	  } else {
-	    print "Unrecognized token '$tokens[0]'\n";
-	  }
+      }
+    } elsif ( $indentCount == 2 ) {
+      $currentMethod = '';
+      if ( $tokens[0] eq 'attribute' ) {
+        $ooapiDefinition->{classes}->{$currentClass}->{attributes}->{$tokens[2]}->{datatype} = $tokens[1];
+        my $iToken = 3;
+        while ( $iToken <= scalar(@tokens) ) {
+          $ooapiDefinition->{classes}->{$currentClass}->{attributes}->{$tokens[2]}->{$tokens[$iToken]} = 1;
+          $iToken++;
+        }
+      } elsif ( $tokens[0] eq 'constraint' ) {
+        $ooapiDefinition->{classes}->{$currentClass}->{constraints}->{$tokens[2]} = $tokens[1];
+      } elsif ( $tokens[0] eq 'contains' ) {
+        $ooapiDefinition->{classes}->{$currentClass}->{contains}->{$tokens[2]} = $tokens[1];
+      } elsif ( $tokens[0] eq 'method' ) {
+        $ooapiDefinition->{classes}->{$currentClass}->{methods}->{$tokens[1]}->{name} = $tokens[1];
+        $currentMethod = $tokens[1];
+      } else {
+        print "Unrecognized token '$tokens[0]'\n";
+      }
 
-	} elsif ( $indentCount == 4 ) {
-	  if ( $tokens[0] eq 'parameter' && $currentMethod ) {
-		$ooapiDefinition->{classes}->{$currentClass}->{methods}->{$currentMethod}->{parameters}->{$tokens[2]} = \@tokens;
-	  } elsif ( $tokens[0] eq 'returns' && $currentMethod ) {
-		$ooapiDefinition->{classes}->{$currentClass}->{methods}->{$currentMethod}->{returns} = $tokens[1];
-	  } else {
-	    print "Unhandled indentcount=4 token '$tokens[0]' in line '$line'\n";
-	  }
-	} else {
-	  print "Unhandled indentCount=$indentCount\n";
-	}
-	
-	
+    } elsif ( $indentCount == 4 ) {
+      if ( $tokens[0] eq 'parameter' && $currentMethod ) {
+        $ooapiDefinition->{classes}->{$currentClass}->{methods}->{$currentMethod}->{parameters}->{$tokens[2]} = \@tokens;
+      } elsif ( $tokens[0] eq 'returns' && $currentMethod ) {
+        $ooapiDefinition->{classes}->{$currentClass}->{methods}->{$currentMethod}->{returns} = $tokens[1];
+      } else {
+        print "Unhandled indentcount=4 token '$tokens[0]' in line '$line'\n";
+      }
+    } else {
+      print "Unhandled indentCount=$indentCount\n";
+    }
+    
+    
   }
   close(INFILE);
 
@@ -343,14 +343,14 @@ sub extractCustomContent {
   my @methodsToKeep = keys %{$ooapiDefinition->{classes}->{$class}->{methods}};
   push(@methodsToKeep,"new","___CLASS-LEVEL CODE");
   foreach my $method ( @methodsToKeep ) {
-	$methods{$method}->{found} = 0;
-	$methods{$method}->{code} = [];
-	$nMethods++;
+    $methods{$method}->{found} = 0;
+    $methods{$method}->{code} = [];
+    $nMethods++;
   }
 
   #### If there aren't any, nothing to do
   unless ( $nMethods ) {
-	$response->logEvent( level=>'INFO', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+    $response->logEvent( level=>'INFO', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
       message=>"This class $class has no methods so nothing to try to preserve");
     $response->setState( status=>'OK', message=>"No methods to preserve");
     print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $debug );
@@ -359,7 +359,7 @@ sub extractCustomContent {
 
   #### Check if the file is there
   unless ( -e $filename ) {
-	$response->logEvent( level=>'INFO', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+    $response->logEvent( level=>'INFO', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
       message=>"There is no previous instance of class $class. Wanted to try to preserve some content, but nothing to do. This is fine.");
     $response->setState( status=>'OK', message=>"No previous class data to preserve");
     print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $debug );
@@ -368,7 +368,7 @@ sub extractCustomContent {
 
   #### Open file
   unless ( open(INFILE,$filename) ) {
-	$response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'CannotOpenPrev', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'CannotOpenPrev', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
       message=>"Although it exists, we are unable to open file '$filename' for writing");
     print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $debug );
     return $response;
@@ -382,12 +382,12 @@ sub extractCustomContent {
 
     #### If this is the beginning of a sub the start paying attention
     if ( $line =~ /^sub (.+) \{/ ) {
-	  $foundMethod = $1;
+      $foundMethod = $1;
 
       #### If this is one of the methods under autogen control, then just extract the custom section
-	  if ( $methods{$foundMethod} || $foundMethod eq 'new' ) {
-	    print "INFO: Extracting custom code in method $foundMethod\n";
-		$ooapiDefinition->{classes}->{$class}->{methods}->{$foundMethod}->{customCode} = $methods{$foundMethod}->{code};
+      if ( $methods{$foundMethod} || $foundMethod eq 'new' ) {
+        print "INFO: Extracting custom code in method $foundMethod\n";
+        $ooapiDefinition->{classes}->{$class}->{methods}->{$foundMethod}->{customCode} = $methods{$foundMethod}->{code};
         $captureMode = 0;
         $pendingBuffer = '';
 
@@ -396,36 +396,36 @@ sub extractCustomContent {
         print "INFO: Preserving custom method $foundMethod\n";
         $methods{$foundMethod}->{code} = [];
         $ooapiDefinition->{classes}->{$class}->{extraMethods}->{$foundMethod}->{customCode} = $methods{$foundMethod}->{code};
-	    $captureMode = 2;
+        $captureMode = 2;
         $pendingBuffer = '';
-	  }
+      }
     }
 
     #### At the beginning of the custom section, enter mode 1 and flush the buffer
     if ( $line =~ /BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY/ ) {
-	  $captureMode = 1;
+      $captureMode = 1;
       $pendingBuffer = '';
 
     #### At the end of the custom section, back to mode 0 and flush the buffer
-	} elsif ( $line =~ /END CUSTOMIZATION. DO NOT EDIT MANUALLY/ ) {
-	  $captureMode = 0;
+    } elsif ( $line =~ /END CUSTOMIZATION. DO NOT EDIT MANUALLY/ ) {
+      $captureMode = 0;
       $pendingBuffer = '';
 
     #### At the beginning of the custom section, enter mode 1 and flush the buffer
-	} elsif ( $line =~ /BEGIN CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE/ ) {
+    } elsif ( $line =~ /BEGIN CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE/ ) {
       $foundMethod = "___CLASS-LEVEL CODE";
       $ooapiDefinition->{classes}->{$class}->{methods}->{$foundMethod}->{customCode} = $methods{$foundMethod}->{code};
-	  $captureMode = 1;
+      $captureMode = 1;
       $pendingBuffer = '';
 
     #### At the end of the custom section, back to mode 0 and flush the buffer
-	} elsif ( $line =~ /END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE/ ) {
-	  $captureMode = 0;
+    } elsif ( $line =~ /END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE/ ) {
+      $captureMode = 0;
       $pendingBuffer = '';
 
     #### If we're capturing information
     } elsif ( $captureMode ) {
-	  $line =~ s/[\r\n]//g;
+      $line =~ s/[\r\n]//g;
       if ( $captureMode == 1 ) {
         if ( $line =~ /^\s*$/ ) {
           next;
@@ -440,10 +440,10 @@ sub extractCustomContent {
           $pendingBuffer = '';
         }
       }
-	  unless ( $pendingBuffer ) {
+      unless ( $pendingBuffer ) {
         push(@{$methods{$foundMethod}->{code}},$line);
       }
-	}
+    }
   }
   close(INFILE);
 
@@ -499,19 +499,19 @@ sub generateOoapi {
 
     print "INFO: Generate code for $class $class\n";
 
-	#### Generate other forms of the class name
-	my $fullClassName = $class;
-	$fullClassName =~ s/\./::/g;
-	my $classFileName = $class;
+    #### Generate other forms of the class name
+    my $fullClassName = $class;
+    $fullClassName =~ s/\./::/g;
+    my $classFileName = $class;
     $classFileName =~ s/\./\//g;
-	$classFileName .= ".pm";
+    $classFileName .= ".pm";
 
     #### Define the output file
-	my $outfile = "$destination/$classFileName";
+    my $outfile = "$destination/$classFileName";
 
-	#### Save all the hand-rolled content in the existing file
-	my $extractCustomContentResult = extractCustomContent( filename=>$outfile, class=>$class, ooapiDefinition=>$ooapiDefinition, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
-	$response->mergeResponse( sourceResponse=>$extractCustomContentResult );
+    #### Save all the hand-rolled content in the existing file
+    my $extractCustomContentResult = extractCustomContent( filename=>$outfile, class=>$class, ooapiDefinition=>$ooapiDefinition, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
+    $response->mergeResponse( sourceResponse=>$extractCustomContentResult );
     return $response if ( $response->{status} ne 'OK' );
 
     #### Make a list of built-in methods that we need to know about when scanning for custom content
@@ -520,14 +520,14 @@ sub generateOoapi {
     $builtinMethods{show} = 1 unless ( $ooapiDefinition->{classes}->{$class}->{methods}->{show} );
 
     #### Open output file
-	unless ( open(OUTFILE,">$outfile") ) {
-	  $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'CannotWriteClass', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+    unless ( open(OUTFILE,">$outfile") ) {
+      $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'CannotWriteClass', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
         message=>"Unable to open file '$outfile' for writing");
       return $response;
-	}
+    }
 
-	#### Write out a premable
-	print OUTFILE <<EOU;
+    #### Write out a premable
+    print OUTFILE <<EOU;
 package $fullClassName;
 
 ###############################################################################
@@ -555,13 +555,13 @@ EOU
 
   if ( $ooapiDefinition->{classes}->{$class}->{methods}->{"___CLASS-LEVEL CODE"}->{customCode} ) {
     foreach my $line ( @{$ooapiDefinition->{classes}->{$class}->{methods}->{"___CLASS-LEVEL CODE"}->{customCode}} ) {
-	  print OUTFILE "$line\n";
-	}
+      print OUTFILE "$line\n";
+    }
   } else {
     print OUTFILE "\n\n";
   }
 
-	print OUTFILE <<EOU;
+    print OUTFILE <<EOU;
 
 #### END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
@@ -583,15 +583,15 @@ sub new {
 
   #### Process constructor object parameters
 EOU
-	foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
-	  my $ucfirstAttribute = ucfirst($attribute);
-	  print OUTFILE <<EOU;
+    foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
+      my $ucfirstAttribute = ucfirst($attribute);
+      print OUTFILE <<EOU;
   my \$$attribute = processParameters( name=>'$attribute', required=>0, allowUndef=>0, parameters=>\\\%parameters, caller=>\$METHOD );
   \$self->{_$attribute} = \$$attribute;
 EOU
     }
 
-	print OUTFILE <<EOU;
+    print OUTFILE <<EOU;
 
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
@@ -599,13 +599,13 @@ EOU
 
   if ( $ooapiDefinition->{classes}->{$class}->{methods}->{new}->{customCode} ) {
     foreach my $line ( @{$ooapiDefinition->{classes}->{$class}->{methods}->{new}->{customCode}} ) {
-	  print OUTFILE "$line\n";
-	}
+      print OUTFILE "$line\n";
+    }
   } else {
     print OUTFILE "\n\n";
   }
 
-	print OUTFILE <<EOU;
+    print OUTFILE <<EOU;
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
 
@@ -630,29 +630,29 @@ EOU
     }
 
     #### Generate all the getter and setter for attributes
-	foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
-	  my $ucfirstAttribute = ucfirst($attribute);
-	  my $datatype = '';
-	  my $enum = '';
-	  my @qualifiers = keys(%{$ooapiDefinition->{classes}->{$class}->{attributes}->{$attribute}});
-	  foreach my $qualifier ( @qualifiers ) {
-		next if ( $qualifier eq 'name' );
-		next if ( $qualifier =~ /^\s*$/ );
-		my $qualifierValue = $ooapiDefinition->{classes}->{$class}->{attributes}->{$attribute}->{$qualifier};
-		if ( $qualifier eq 'datatype' ) {
-		  $datatype = $qualifierValue;
-		} elsif ( $qualifier =~ /enum\((.+)\)/ ) {
-		  $enum = $1;
-		} else {
-		  print "ERROR: Unknown attribute qualifier '$qualifier' in class $class\n";
-		  exit;
-		}
-	  }
+    foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
+      my $ucfirstAttribute = ucfirst($attribute);
+      my $datatype = '';
+      my $enum = '';
+      my @qualifiers = keys(%{$ooapiDefinition->{classes}->{$class}->{attributes}->{$attribute}});
+      foreach my $qualifier ( @qualifiers ) {
+        next if ( $qualifier eq 'name' );
+        next if ( $qualifier =~ /^\s*$/ );
+        my $qualifierValue = $ooapiDefinition->{classes}->{$class}->{attributes}->{$attribute}->{$qualifier};
+        if ( $qualifier eq 'datatype' ) {
+          $datatype = $qualifierValue;
+        } elsif ( $qualifier =~ /enum\((.+)\)/ ) {
+          $enum = $1;
+        } else {
+          print "ERROR: Unknown attribute qualifier '$qualifier' in class $class\n";
+          exit;
+        }
+      }
 
       $builtinMethods{"get$ucfirstAttribute"} = 1;
       $builtinMethods{"set$ucfirstAttribute"} = 1;
 
-	  print OUTFILE <<EOU;
+      print OUTFILE <<EOU;
 sub get$ucfirstAttribute {
 ###############################################################################
 # get$ucfirstAttribute
@@ -677,38 +677,38 @@ sub set$ucfirstAttribute {
 
 EOU
 
-	  if ( $datatype eq 'string' ) {
-		# nothing to do, anything can be a string. Could try to make sure it's not a pointer
-	  } elsif ( $datatype eq 'int32' ) {
-   	    print OUTFILE <<EOU;
+      if ( $datatype eq 'string' ) {
+        # nothing to do, anything can be a string. Could try to make sure it's not a pointer
+      } elsif ( $datatype eq 'int32' ) {
+        print OUTFILE <<EOU;
   #### Ensure that the value is of type int32
   unless ( \$value =~ /^\s*[\\-\\+]*\\d+\\s*\$/ ) {
     print "ERROR: Unable to set $attribute to '\$value': not valid int32\\n";
   }
 
 EOU
-	  } elsif ( $datatype eq 'float' ) {
-   	    print OUTFILE <<EOU;
+      } elsif ( $datatype eq 'float' ) {
+        print OUTFILE <<EOU;
   #### Ensure that the value is of type int32
   unless ( \$value =~ /^\s*[eE\+\-\.\d]+\s*$/ ) {
     print "ERROR: Unable to set $attribute to '\$value': not valid float\\n";
   }
 
 EOU
-	  } else {
-	    print "ERROR: Unrecognized datatype '$datatype'\n";
+      } else {
+        print "ERROR: Unrecognized datatype '$datatype'\n";
       }
 
-	  if ( $enum ) {
-   	    print OUTFILE <<EOU;
+      if ( $enum ) {
+        print OUTFILE <<EOU;
   #### Ensure that the value is one of the permitted ones in the enumeration
   my \$allowedValues = '$enum';
   my \@allowedValues = split(/,/,\$allowedValues);
   my \$isAllowed = 0;
   foreach my \$allowedValue ( \@allowedValues ) {
     if ( \$value eq \$allowedValue ) {
-	  \$isAllowed = 1;
-	}
+      \$isAllowed = 1;
+    }
   }
   unless ( \$isAllowed ) {
     print "ERROR: Unable to set $attribute to \$value. Must be one of ($enum)\\n";
@@ -717,7 +717,7 @@ EOU
 EOU
       }
 
-	  print OUTFILE <<EOU;
+      print OUTFILE <<EOU;
 
   \$self->{_$attribute} = \$value;
   print "DEBUG: Exiting \$CLASS.\$METHOD\\n" if ( \$DEBUG );
@@ -726,15 +726,15 @@ EOU
 
 
 EOU
-	}
+    }
 
 
     #### Generate all the getter and setter for contains elements
-	foreach my $containerClass ( sort keys %{$ooapiDefinition->{classes}->{$class}->{contains}} ) {
-	  my $cardinality = $ooapiDefinition->{classes}->{$class}->{contains}->{$containerClass};
-	  my $suffix = '';
-	  $suffix = 'List' if ( $cardinality eq 'listOf' );
-	  print OUTFILE <<EOU;
+    foreach my $containerClass ( sort keys %{$ooapiDefinition->{classes}->{$class}->{contains}} ) {
+      my $cardinality = $ooapiDefinition->{classes}->{$class}->{contains}->{$containerClass};
+      my $suffix = '';
+      $suffix = 'List' if ( $cardinality eq 'listOf' );
+      print OUTFILE <<EOU;
 sub get$containerClass {
 ###############################################################################
 # get$containerClass
@@ -765,13 +765,13 @@ sub set$containerClass {
 
 
 EOU
-	}
+    }
 
 
 
-	#### Generate the methods if there are any
-	foreach my $method ( sort keys %{$ooapiDefinition->{classes}->{$class}->{methods}} ) {
-	  print OUTFILE <<EOU;
+    #### Generate the methods if there are any
+    foreach my $method ( sort keys %{$ooapiDefinition->{classes}->{$class}->{methods}} ) {
+      print OUTFILE <<EOU;
 sub $method {
 ###############################################################################
 # $method
@@ -801,27 +801,27 @@ sub $method {
   #### Process specific parameters
 EOU
 
-	#### Create a buffer for some code snippets to be used later
-	my $rmiParametersBuffer = '';
+    #### Create a buffer for some code snippets to be used later
+    my $rmiParametersBuffer = '';
 
-	#### Generate code for the specific parameters if there are any
-	foreach my $parameter ( sort keys %{$ooapiDefinition->{classes}->{$class}->{methods}->{$method}->{parameters}} ) {
-	  my $ucfirstParameter = ucfirst($parameter);
-	  my ($dummy,$type,$name,$necessity,$constraints) = @{$ooapiDefinition->{classes}->{$class}->{methods}->{$method}->{parameters}->{$parameter}};
-	  my $required = 0;
-	  $required = 1 if ( $necessity eq 'required' );
-	  if ( $type eq 'attribute' ) {
-	    unless ( $ooapiDefinition->{classes}->{$class}->{attributes}->{$name} ) {
-		  print "ERROR: In method $method, parameter $parameter is not attribute\n";
-		  $type = "string";
-		}
-	  } else {
-		$rmiParametersBuffer .= "\$methodParameters->{$parameter} = \$$parameter;\n";
-	  }
+    #### Generate code for the specific parameters if there are any
+    foreach my $parameter ( sort keys %{$ooapiDefinition->{classes}->{$class}->{methods}->{$method}->{parameters}} ) {
+      my $ucfirstParameter = ucfirst($parameter);
+      my ($dummy,$type,$name,$necessity,$constraints) = @{$ooapiDefinition->{classes}->{$class}->{methods}->{$method}->{parameters}->{$parameter}};
+      my $required = 0;
+      $required = 1 if ( $necessity eq 'required' );
+      if ( $type eq 'attribute' ) {
+        unless ( $ooapiDefinition->{classes}->{$class}->{attributes}->{$name} ) {
+          print "ERROR: In method $method, parameter $parameter is not attribute\n";
+          $type = "string";
+        }
+      } else {
+        $rmiParametersBuffer .= "\$methodParameters->{$parameter} = \$$parameter;\n";
+      }
       print OUTFILE <<EOU;
   my \$$parameter = processParameters( name=>'$parameter', required=>$required, allowUndef=>0, parameters=>\\\%parameters, caller=>\$METHOD, response=>\$response );
 EOU
-	  if ( $type eq 'attribute' ) {
+      if ( $type eq 'attribute' ) {
         print OUTFILE <<EOU;
   if ( ! defined(\$$parameter) ) {
     \$$parameter = \$self->get$ucfirstParameter();
@@ -832,7 +832,7 @@ EOU
 EOU
       }
 
-	  if ( $necessity eq 'requiredOrAvailable' ) {
+      if ( $necessity eq 'requiredOrAvailable' ) {
         print OUTFILE <<EOU;
   if ( ! defined(\$$parameter) ) {
     \$response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'Attribute${parameter}NotDefined', verbose=>\$verbose, debug=>\$debug, quiet=>\$quiet, outputDestination=>\$outputDestination, 
@@ -842,11 +842,11 @@ EOU
   }
 
 EOU
-	  }
+      }
 
-	}
+    }
 
-	print OUTFILE <<EOU;
+    print OUTFILE <<EOU;
   #### Die if any unexpected parameters are passed
   my \$unexpectedParameters = '';
   foreach my \$parameter ( keys(\%parameters) ) { \$unexpectedParameters .= "ERROR: unexpected parameter '\$parameter'\\n"; }
@@ -857,13 +857,13 @@ EOU
 
 EOU
   if ( $ooapiDefinition->{enableRMI} ) {
-	print OUTFILE <<EOU;
+    print OUTFILE <<EOU;
   #### If the rmiServer parameter is set, then send this off to the remote server to execute
   if ( \$rmiServer ) {
     my \$methodParameters;
-	\$methodParameters->{debug} = \$debug;
-	\$methodParameters->{verbose} = \$verbose;
-	\$methodParameters->{quiet} = \$quiet;
+    \$methodParameters->{debug} = \$debug;
+    \$methodParameters->{verbose} = \$verbose;
+    \$methodParameters->{quiet} = \$quiet;
     $rmiParametersBuffer
 
     my \$result = \$self->invokeRemoteMethod( rmiServer=>\$rmiServer, methodName=>\$METHOD, methodParameters=>\$methodParameters );
@@ -885,13 +885,13 @@ EOU
 
   if ( $ooapiDefinition->{classes}->{$class}->{methods}->{$method}->{customCode} ) {
     foreach my $line ( @{$ooapiDefinition->{classes}->{$class}->{methods}->{$method}->{customCode}} ) {
-	  print OUTFILE "$line\n";
-	}
+      print OUTFILE "$line\n";
+    }
   } else {
     print OUTFILE "\n\n";
   }
 
-	print OUTFILE <<EOU;
+    print OUTFILE <<EOU;
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -909,9 +909,9 @@ EOU
 
 EOU
 
-	}
+    }
 
-	#### End the file with a footer
+    #### End the file with a footer
     unless ( $ooapiDefinition->{classes}->{$class}->{methods}->{show} ) {
       print OUTFILE <<EOU;
 sub show {
@@ -928,17 +928,17 @@ sub show {
   \$buffer .= "\$self\\n";
 EOU
 
-	#### Generate code for the specific parameters if there are any
-	foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
-	  my $ucfirstAttribute = ucfirst($attribute);
+    #### Generate code for the specific parameters if there are any
+    foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
+      my $ucfirstAttribute = ucfirst($attribute);
       print OUTFILE <<EOU;
   my \$$attribute = \$self->get$ucfirstAttribute() || '';
   \$buffer .= "  $attribute=\$$attribute\\n";
 EOU
-	}
+    }
 
-	#### End the file with a footer
-	print OUTFILE <<EOU;
+    #### End the file with a footer
+    print OUTFILE <<EOU;
 
   print "DEBUG: Exiting \$CLASS.\$METHOD\\n" if ( \$DEBUG );
   return \$buffer;
@@ -948,8 +948,8 @@ EOU
 EOU
     }
 
-	#### Create the serialize and deserialize methods
-	if ( $ooapiDefinition->{serialize} ) {
+    #### Create the serialize and deserialize methods
+    if ( $ooapiDefinition->{serialize} ) {
       $builtinMethods{serialize} = 1;
       $builtinMethods{package} = 1;
       $builtinMethods{deserialize} = 1;
@@ -988,16 +988,16 @@ sub package {
   my \%objectData = ();
 EOU
 
-  	  #### Generate code for the specific attributes if there are any
-	  foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
-	    my $ucfirstAttribute = ucfirst($attribute);
+      #### Generate code for the specific attributes if there are any
+      foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
+        my $ucfirstAttribute = ucfirst($attribute);
         print OUTFILE <<EOU;
   \$objectData{$attribute} = \$self->get$ucfirstAttribute() || '';
 EOU
-	}
+    }
 
-	  #### Continue creating the JSON
-	  print OUTFILE <<EOU;
+      #### Continue creating the JSON
+      print OUTFILE <<EOU;
 
   \$self =~ /(0x[\da-m]+)/;
   my \$id = \$1;
@@ -1009,9 +1009,9 @@ EOU
   \$object{content} = \\\%objectData;
 
   if ( \$parameters{envelopeData} ) {
-	foreach my \$item ( keys(\%{\$parameters{envelopeData}}) ) {
-	  \$object{\$item} = \$parameters{envelopeData}->{\$item};
-	}
+    foreach my \$item ( keys(\%{\$parameters{envelopeData}}) ) {
+      \$object{\$item} = \$parameters{envelopeData}->{\$item};
+    }
   }
 
   print "DEBUG: Exiting \$CLASS.\$METHOD\\n" if ( \$DEBUG );
@@ -1057,16 +1057,16 @@ sub unpackage {
 
 EOU
 
-	  #### Generate code for the specific attributes if there are any
-	  foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
-	    my $ucfirstAttribute = ucfirst($attribute);
+      #### Generate code for the specific attributes if there are any
+      foreach my $attribute ( sort keys %{$ooapiDefinition->{classes}->{$class}->{attributes}} ) {
+        my $ucfirstAttribute = ucfirst($attribute);
         print OUTFILE <<EOU;
   \$self->set$ucfirstAttribute(\$content->{$attribute}) if ( exists(\$content->{$attribute}) );
 EOU
-	}
+    }
 
-	  #### Continue creating the JSON
-	  print OUTFILE <<EOU;
+      #### Continue creating the JSON
+      print OUTFILE <<EOU;
 
   print "DEBUG: Exiting \$CLASS.\$METHOD\\n" if ( \$DEBUG );
   return 1;
@@ -1077,10 +1077,10 @@ EOU
 
     }
 
-	#### Create the invokeRemoteMethod method
-	if ( $ooapiDefinition->{enableRMI} ) {
+    #### Create the invokeRemoteMethod method
+    if ( $ooapiDefinition->{enableRMI} ) {
       $builtinMethods{invokeRemoteMethod} = 1;
-  	  print OUTFILE <<EOU;
+      print OUTFILE <<EOU;
 sub invokeRemoteMethod {
 ###############################################################################
 # invokeRemoteMethod
@@ -1131,25 +1131,25 @@ sub invokeRemoteMethod {
   if (\$httpResponse->is_success) {
     print "** Response is:".\$httpResponse->decoded_content();
     my \$objectPackageArray = decode_json(\$httpResponse->decoded_content());
-	my \$firstPackage = shift(\@{\$objectPackageArray});
-	\$response->unpackage( package=>\$firstPackage );
-	my \$secondPackage = shift(\@{\$objectPackageArray});
-	\$self->unpackage( package=>\$secondPackage );
+    my \$firstPackage = shift(\@{\$objectPackageArray});
+    \$response->unpackage( package=>\$firstPackage );
+    my \$secondPackage = shift(\@{\$objectPackageArray});
+    \$self->unpackage( package=>\$secondPackage );
 
   } else {
     #print "** ERROR: Response is:\\n";
     #print \$httpResponse->status_line, "\\n";
     #print \$httpResponse->decoded_content();
-	if ( \$httpResponse->status_line =~ /404/ ) {
+    if ( \$httpResponse->status_line =~ /404/ ) {
       \$response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"404FromRemoteHost", verbose=>\$verbose, debug=>\$debug, quiet=>\$quiet, outputDestination=>\$outputDestination, 
         message=>"Remote web server reports that PROXI API endpoint URL '".\$rmiServer->getProxiUrl()."' does not exist.");
-	} elsif ( \$httpResponse->status_line =~ /500 Can't connect/ ) {
+    } elsif ( \$httpResponse->status_line =~ /500 Can't connect/ ) {
      \$response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"RemoteHostNotResponding", verbose=>\$verbose, debug=>\$debug, quiet=>\$quiet, outputDestination=>\$outputDestination, 
         message=>"Remote web server for URL '".\$rmiServer->getProxiUrl()."' is not responding at all: ".\$httpResponse->status_line);
     } else {
       \$response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"BadResponseFromRemote", verbose=>\$verbose, debug=>\$debug, quiet=>\$quiet, outputDestination=>\$outputDestination, 
         message=>"Bad response of unknown type from remote PROXI server");
-	}
+    }
   }
 
   #### Update the status codes and return
@@ -1173,15 +1173,15 @@ EOU
       }
     }
 
-	#### End the file with a footer
-	print OUTFILE <<EOU;
+    #### End the file with a footer
+    print OUTFILE <<EOU;
 
 ###############################################################################
 1;
 EOU
 
     #### Close file
-	close(OUTFILE);
+    close(OUTFILE);
   }
 
   #### Update the status codes and return
