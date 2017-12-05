@@ -212,22 +212,22 @@ sub logEvent {
     if ( $level eq 'ERROR' ) {
       $self->{nErrors}++;
       push( @{$self->{errors}}, $fullMessage );
-	  if ( $outputDestination eq 'STDOUT' || $outputDestination eq 'BOTH' ) {
+      if ( $outputDestination eq 'STDOUT' || $outputDestination eq 'BOTH' ) {
         print "$fullMessage\n" unless ( $quiet );
       }
-	  if ( $outputDestination eq 'STDERR' || $outputDestination eq 'BOTH' ) {
+      if ( $outputDestination eq 'STDERR' || $outputDestination eq 'BOTH' ) {
         print STDERR "$fullMessage\n" unless ( $quiet );
       }
-	}
+    }
 
     #### If this is a warning, push it to the warning list
     if ( $level eq 'WARNING' ) {
       $self->{nWarnings}++;
       push( @{$self->{warnings}}, $fullMessage );
-	  if ( $outputDestination eq 'STDOUT' || $outputDestination eq 'BOTH' ) {
+      if ( $outputDestination eq 'STDOUT' || $outputDestination eq 'BOTH' ) {
         print "$fullMessage\n" unless ( $quiet );
       }
-	  if ( $outputDestination eq 'STDERR' || $outputDestination eq 'BOTH' ) {
+      if ( $outputDestination eq 'STDERR' || $outputDestination eq 'BOTH' ) {
         print STDERR "$fullMessage\n" unless ( $quiet );
       }
     }
@@ -237,10 +237,10 @@ sub logEvent {
       if ( defined($minimumVerbosity) && $verbose >= $minimumVerbosity ) {
         $self->{nMessages}++;
         push( @{$self->{messages}}, $fullMessage );
-	    if ( $outputDestination eq 'STDOUT' || $outputDestination eq 'BOTH' ) {
+        if ( $outputDestination eq 'STDOUT' || $outputDestination eq 'BOTH' ) {
           print "$fullMessage\n" unless ( $quiet );
         }
-	    if ( $outputDestination eq 'STDERR' || $outputDestination eq 'BOTH' ) {
+        if ( $outputDestination eq 'STDERR' || $outputDestination eq 'BOTH' ) {
           print STDERR "$fullMessage\n" unless ( $quiet );
         }
       }
@@ -336,7 +336,7 @@ sub setState {
 
   #### If the caller set the status to OK and there is no errorCode or message provided, clear them
   if ( $status && $status eq 'OK' ) {
-	$self->{errorCode} = '' unless ( $errorCode );
+    $self->{errorCode} = '' unless ( $errorCode );
     $self->{message} = '' unless ( $message );
     $self->{fullMessage} = '' unless ( $message );
   }
@@ -379,24 +379,24 @@ sub show {
   $buffer .= "nErrors=$self->{nErrors}\n" if ( $self->{nErrors} );
   if ( $self->{nErrors} ) {
     foreach my $errorMessage ( @{$self->{errors}} ) {
-	  $buffer .= "  -$errorMessage\n";
-	}
+      $buffer .= "  -$errorMessage\n";
+    }
   }
 
   #### Print warning count and any warnings
   $buffer .= "nWarnings=$self->{nWarnings}\n" if ( $self->{nWarnings} );
   if ( $self->{nWarnings} ) {
     foreach my $warningMessage ( @{$self->{warnings}} ) {
-	  $buffer .= "  -$warningMessage\n";
-	}
+      $buffer .= "  -$warningMessage\n";
+    }
   }
 
   #### Print info count and any info messages
   $buffer .= "nMessages=$self->{nMessages}\n" if ( $self->{nMessages} );
   if ( $self->{nMessages} ) {
     foreach my $infoMessage ( @{$self->{messages}} ) {
-	  $buffer .= "  -$infoMessage\n";
-	}
+      $buffer .= "  -$infoMessage\n";
+    }
   }
 
   print "DEBUG: Exiting $CLASS.$METHOD\n" if ($debug);
@@ -484,9 +484,9 @@ sub serialize {
   my @objectArray = ( $package );
 
   if ( $self->{respondingObject} ) {
-	my %respondingObject = ();
-	if ( $self->{respondingObject} =~ /^(.+)=/ ) {
-	  $respondingObject{class} = $1;
+    my %respondingObject = ();
+    if ( $self->{respondingObject} =~ /^(.+)=/ ) {
+      $respondingObject{class} = $1;
       $self->{respondingObject} =~ /(0x[\da-m]+)/;
       my $id = $1;
       $respondingObject{id} = $id;
@@ -539,9 +539,9 @@ sub package {
   $object{content} = \%objectData;
 
   if ( $parameters{envelopeData} ) {
-	foreach my $item ( keys(%{$parameters{envelopeData}}) ) {
-	  $object{$item} = $parameters{envelopeData}->{$item};
-	}
+    foreach my $item ( keys(%{$parameters{envelopeData}}) ) {
+      $object{$item} = $parameters{envelopeData}->{$item};
+    }
   }
 
   print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $DEBUG );
@@ -579,17 +579,17 @@ sub serializeold {
   $object{content} = \%objectData;
 
   if ( $parameters{envelopeData} ) {
-	foreach my $item ( keys(%{$parameters{envelopeData}}) ) {
-	  $object{$item} = $parameters{envelopeData}->{$item};
-	}
+    foreach my $item ( keys(%{$parameters{envelopeData}}) ) {
+      $object{$item} = $parameters{envelopeData}->{$item};
+    }
   }
 
   my @objectArray = ( \%object );
 
   if ( $self->{respondingObject} ) {
-	my %respondingObject = ();
-	if ( $self->{respondingObject} =~ /^(.+)=/ ) {
-	  $respondingObject{class} = $1;
+    my %respondingObject = ();
+    if ( $self->{respondingObject} =~ /^(.+)=/ ) {
+      $respondingObject{class} = $1;
       $self->{respondingObject} =~ /(0x[\da-m]+)/;
       my $id = $1;
       $respondingObject{id} = $id;

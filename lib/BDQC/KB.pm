@@ -754,7 +754,7 @@ sub importSignatures {
         my $tmp = {};
         my $components = $self->splitFilePath($file);
         my $fileTag = "import1:$file";
-	    my $tracking = { fileTag=>$fileTag, filePath=>$file, filename=>$components->{filename},
+        my $tracking = { fileTag=>$fileTag, filePath=>$file, filename=>$components->{filename},
           dataDirectory=>$components->{directory}, dataDirectoryId=>'import1', isNew=>1 };
         $tmp->{tracking} = $tracking;
 
@@ -909,9 +909,9 @@ sub loadKb {
 
   } else {
     if ( $skipIfFileNotFound ) {
-	  $response->setState( status=>'OK', message=>"Skipping IfFileNotFound as requested");
-	  $response->{fileNotFound} = 1;
-	} else {
+      $response->setState( status=>'OK', message=>"Skipping IfFileNotFound as requested");
+      $response->{fileNotFound} = 1;
+    } else {
       $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"DatastoreDoesNotExist", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
         message=>"Datastore '$filename' does not exist.");
     }
@@ -1110,8 +1110,8 @@ sub scanDataPath {
   my $nPreviousDirectories = scalar(@{$qckb->{dataDirectories}});
   foreach my $previousDirectories ( @{$qckb->{dataDirectories}} ) {
     if ( $previousDirectories->{path} eq $dataDirectory ) {
-	  $dataDirectoryId = $previousDirectories->{id};
-	}
+      $dataDirectoryId = $previousDirectories->{id};
+    }
   }
 
   #### If we haven't scanned this one before, add this path now
@@ -1126,15 +1126,15 @@ sub scanDataPath {
   my $done = 0;
   while ( ! $done ) {
     my $directory = shift(@directoriesToProcess);
-	last unless ( $directory );
-	opendir(DIR,$directory) || die("ERROR: Unable to open directory '$directory'");
-	my @entries = grep(!/^\.{1,2}$/, readdir(DIR));
-	closedir(DIR);
-	@entries = sort(@entries);
-	foreach my $entry ( @entries ) {
-	  if ( -f "$directory/$entry" ) {
-	    my $fileTag = "$dataDirectoryId:$directory/$entry";
-	    my $filePath = "$directory/$entry";
+    last unless ( $directory );
+    opendir(DIR,$directory) || die("ERROR: Unable to open directory '$directory'");
+    my @entries = grep(!/^\.{1,2}$/, readdir(DIR));
+    closedir(DIR);
+    @entries = sort(@entries);
+    foreach my $entry ( @entries ) {
+      if ( -f "$directory/$entry" ) {
+        my $fileTag = "$dataDirectoryId:$directory/$entry";
+        my $filePath = "$directory/$entry";
         $stats{totalFiles}++;
 
         #### Parse the filename into pieces
@@ -1163,32 +1163,32 @@ sub scanDataPath {
           }
         }
 
-	    my $tracking = { fileTag=>$fileTag, filePath=>$filePath, filename=>$entry, dataDirectory=>$dataDirectory, dataDirectoryId=>$dataDirectoryId };
-		my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat($filePath);
+        my $tracking = { fileTag=>$fileTag, filePath=>$filePath, filename=>$entry, dataDirectory=>$dataDirectory, dataDirectoryId=>$dataDirectoryId };
+        my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,$atime,$mtime,$ctime,$blksize,$blocks) = stat($filePath);
         $size = 0 if ( ! defined($size) );
         $mtime = 0 if ( ! defined($mtime) );
         $mode = 0 if ( ! defined($mode) );
         $stats{totalSize} += $size;
 
-		if ( exists($qckb->{files}->{$fileTag}) ) {
-		  $tracking->{isNew} = 0;
-		  $qckb->{files}->{$fileTag} ->{signatures}->{tracking}->{isNew} = 0;
+        if ( exists($qckb->{files}->{$fileTag}) ) {
+          $tracking->{isNew} = 0;
+          $qckb->{files}->{$fileTag} ->{signatures}->{tracking}->{isNew} = 0;
           if ( $mtime ne $qckb->{files}->{$fileTag}->{signatures}->{extrinsic}->{mtime} ) {
             $qckb->{files}->{$fileTag} ->{signatures}->{tracking}->{isChanged} = 1;
           }
-		} else {
-		  $tracking->{isNew} = 1;
+        } else {
+          $tracking->{isNew} = 1;
           $stats{newFiles}++;
-		  $qckb->{files}->{$fileTag} ->{signatures}->{tracking} = $tracking;
+          $qckb->{files}->{$fileTag} ->{signatures}->{tracking} = $tracking;
           my $extrinsic = { filename=>$entry, mtime=>$mtime, size=>$size, mode=>$mode, extension=>$extension, iscompressed=>$isCompressed, uncompressedExtension=>$uncompressedExtension, basename=>$basename };
           $qckb->{files}->{$fileTag}->{signatures}->{extrinsic} = $extrinsic;
-		}
-	  } elsif ( -d "$directory/$entry" ) {
-	    push(@directoriesToProcess,"$directory/$entry");
-	  } else {
-	    print "Do not know what to do with $directory/$entry\n";
-	  }
-	}
+        }
+      } elsif ( -d "$directory/$entry" ) {
+        push(@directoriesToProcess,"$directory/$entry");
+      } else {
+        print "Do not know what to do with $directory/$entry\n";
+      }
+    }
   }
 
   $response->{stats} = \%stats;
