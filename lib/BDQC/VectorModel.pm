@@ -286,7 +286,7 @@ sub create {
         $stats->{variance} += ( ($value - $stats->{mean})**2 );
       }
 
-      my $siqr = $stats->{siqr} || $stats->{stdev} || 1;
+      my $siqr = $stats->{siqr} || $stats->{stdev} || $stats->{mean}/10 || 1;
       my $deviation = abs($stats->{median}-$value)/$siqr;
       $deviations[$iValue]->{deviation} = $deviation;
       my $flag = 'normal';
@@ -297,11 +297,11 @@ sub create {
       #### Somewhat specialized, arbitrary rules
       if ( $distributionFlags->{twoValued} ) {
         if ( $observedValues{$datum} == 1 ) {
-          $flag = 'extremity' if ( $nElements > 3 );
-          $flag = 'outlier' if ( $nElements > 7 );
+          $flag = 'extremity' if ( $nElements > 2 );
+          $flag = 'outlier' if ( $nElements > 4 );
         } elsif ( $observedValues{$datum} == 2 ) {
-          $flag = 'extremity' if ( $nElements > 9 );
-          $flag = 'outlier' if ( $nElements > 19 );
+          $flag = 'extremity' if ( $nElements > 5 );
+          $flag = 'outlier' if ( $nElements > 9 );
         }
       }
         
