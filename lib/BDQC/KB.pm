@@ -223,6 +223,9 @@ sub calcModels {
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
   $isImplemented = 1;
+  $response->logEvent( level=>'INFO', minimumVerbosity=>0, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+    message=>"Calculating models for all available signatures");
+
   my $qckb = $self->getQckb();
   $self->setIsChanged(1);
   use BDQC::VectorModel;
@@ -305,6 +308,9 @@ sub calcSignatures {
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
   $isImplemented = 1;
+  $response->logEvent( level=>'INFO', minimumVerbosity=>0, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+    message=>"Calculating signatures for all new files");
+
   my $qckb = $self->getQckb();
   $self->setIsChanged(1);
 
@@ -434,6 +440,9 @@ sub collateData {
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
   $isImplemented = 1;
+  $response->logEvent( level=>'INFO', minimumVerbosity=>0, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+    message=>"Collating all data from signatures into a matrix");
+
   my $qckb = $self->getQckb();
   $self->setIsChanged(1);
 
@@ -524,6 +533,7 @@ sub createKb {
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
   $isImplemented = 1;
+  $response->logEvent( level=>'INFO', minimumVerbosity=>1, message=>"Creating new BDQC KB for storing results", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
   #### Create the qckb data structure and fill it with basic information
   my $qckb = {};
@@ -598,79 +608,70 @@ sub getOutliers {
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
   $isImplemented = 1;
+  $response->logEvent( level=>'INFO', minimumVerbosity=>0, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+    message=>"Listing outliers in the BDQC KB");
+
   my $qckb = $self->getQckb();
-  my @outlierValues;
+  my $outliers;
 
   #### For each fileType, signature, and attribute, record if any deviations are outliers
   foreach my $fileType ( keys(%{$qckb->{fileTypes}}) ) {
+    $outliers->{fileTypes}->{$fileType}->{nFiles} = 0;
+
+    #### First, get the list of fileTagNames for this fileType
+    my $fileTagNames = $qckb->{fileTypes}->{$fileType}->{fileTagList};
+
+    #### Loop over the signatures and attributes
     foreach my $signature ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}}) ) {
       foreach my $attribute ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}}) ) {
-        my $values = $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{values};
+
+        #print "$signature.$attribute:\n";
         my $model = $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{model};
+
+        #### Loop over all the deviations, looking for one labeled an outlier
+        my $iDeviation = 0;
         foreach my $deviation ( @{$model->{deviations}} ) {
           if ( defined($deviation->{deviationFlag}) && $deviation->{deviationFlag} eq 'outlier' ) {
-            #print "$signature.$attribute:\n";
+
+            #### Extract the datum and vaue for the outlier and condition a bit
             my $value = '(null)';
+            my $datum = '(null)';
             $value = $deviation->{value} if ( defined($deviation->{value}) );
-            #print "  Value $value is an outlier with a deviation of $deviation->{deviation}\n";
-            push(@outlierValues,{ signature=>$signature, attribute=>$attribute, value=>$deviation->{value}, deviation=>$deviation });
+            $datum = $deviation->{datum} if ( defined($deviation->{datum}) );
+            my $tmpText = "'$datum'";
+            $tmpText .= " (with value $value)" if ( $datum ne $value );
+            #print "  Datum $tmpText is an outlier with a deviation of '$deviation->{deviation}'\n";
+
+            #### Store the information about this outlier
+            my $fileTagName = $fileTagNames->[$iDeviation];
+            my $outlierData = { signature=>$signature, attribute=>$attribute, datum=>$datum, value=>$value, deviation=>$deviation };
+            push( @{$outliers->{fileTypes}->{$fileType}->{fileTags}->{$fileTagName}}, $outlierData );
+            $outliers->{fileTypes}->{$fileType}->{nFiles}++;
           }
-        }
+          $iDeviation++;
+        } # end foreach deviation
+
+      } # end foreach attribute
+
+    } # end foreach signature
+
+  } # end foreach fileType
+
+
+  #### Print out the outlier files and their outlier values
+  foreach my $fileType ( sort keys(%{$outliers->{fileTypes}}) ) {
+    foreach my $outlierFileTagName ( sort keys(%{$outliers->{fileTypes}->{$fileType}->{fileTags}}) ) {
+      print "$outlierFileTagName is an outlier because:\n";
+      my $outlierFileTagList = $outliers->{fileTypes}->{$fileType}->{fileTags}->{$outlierFileTagName};
+      foreach my $outlier ( @{$outlierFileTagList} ) {
+        my $signature = $outlier->{signature};
+        my $attribute = $outlier->{attribute};
+        my $value = $outlier->{value};
+        my $deviation = $outlier->{deviation}->{deviation};
+        $value = '(null)' if ( ! defined($value) );
+        $value = substr($value,0,70)."...." if ( length($value)>74 );
+        print "  $signature.$attribute: Value '$value' is an outlier at $deviation times SIQR\n";
       }
-    }
-  }
-
-  #### For each outlier value, find the files that are the outliers
-  my %outlierFiles;
-  foreach my $fileTag ( keys(%{$qckb->{files}}) ) {
-    my $signatures = $qckb->{files}->{$fileTag}->{signatures};
-    foreach my $outlier ( @outlierValues ) {
-      my $signature = $outlier->{signature};
-      my $attribute = $outlier->{attribute};
-      my $value = $outlier->{value};
-      my $thisIsAnOutlier = 0;
-      if ( $signatures->{$signature} && exists($signatures->{$signature}->{$attribute}) ) {
-        if ( defined($value) ) {
-          if ( defined($signatures->{$signature}->{$attribute}) ) {
-            if ( $value eq $signatures->{$signature}->{$attribute} ) {
-              $thisIsAnOutlier = 1;
-            } else {
-              # this is not an outlier
-            }
-          } else {
-            # this is not an outlier
-          }
-        } else {
-          if ( defined($signatures->{$signature}->{$attribute}) ) {
-            # this is not an outlier
-          } else {
-            $thisIsAnOutlier = 1;
-          }
-        }
-      }
-
-      #### If this is an outlier, record it
-      if ( $thisIsAnOutlier ) {
-        unless ( $outlierFiles{$fileTag} ) {
-          $outlierFiles{$fileTag} = [];
-        }
-        push(@{$outlierFiles{$fileTag}},$outlier);
-      }
-
-    } # end foreach $outlier
-  } # end foreach $fileTag
-
-
-  #### Print out the outlier files and their problems
-  foreach my $outlierFile ( sort keys(%outlierFiles) ) {
-    print "$outlierFile is an outlier because:\n";
-    foreach my $outlier ( @{$outlierFiles{$outlierFile}} ) {
-      my $signature = $outlier->{signature};
-      my $attribute = $outlier->{attribute};
-      my $value = $outlier->{value};
-      my $deviation = $outlier->{deviation}->{deviation};
-      $value = '(null)' if ( ! defined($value) );
-      print "  $signature.$attribute: Value $value is an outlier at $deviation times SIQR\n";
     }
   }
 
@@ -776,6 +777,22 @@ sub importSignatures {
               print "$attribute is a HASH\n";
             } elsif ( ref($value) eq 'ARRAY' ) {
               if ( $attribute eq 'columns' ) {
+                my $iColumn = 0;
+                foreach my $column ( @{$tabular->{tabledata}->{$attribute}} ) {
+                  foreach my $columnAttributeName ( keys(%{$column}) ) {
+                    my $columnAttributeValue = $column->{$columnAttributeName};
+                    if ( ref($columnAttributeValue) eq 'ARRAY' ) {
+                      #$columnAttributeValue = join(",",@{$columnAttributeValue});
+                      $columnAttributeValue = "TemporarilySuppressed";              # FIXME
+                    } elsif ( ref($columnAttributeValue) eq 'HASH' ) {
+                      # leave as is
+                    } elsif ( ref($columnAttributeValue) eq '' ) {
+                      # leave as is
+                    }
+                    $tmp->{tabular}->{"column$iColumn.$columnAttributeName"} = $columnAttributeValue;
+                  }
+                  $iColumn++;
+                }
               } else {
                 print "$attribute is a ARRAY\n";
               }
@@ -791,7 +808,7 @@ sub importSignatures {
         #delete($tmp->{signatures}->{"bdqc.builtin.tabular"});
         $qckb->{files}->{$fileTag}->{signatures} = $tmp;
         $iFile++;
-        #last if ( $iFile > 100 );
+        #last if ( $iFile > 300 );
       }
 
       $self->setIsChanged(1);
@@ -885,7 +902,7 @@ sub loadKb {
   #### Make sure the file exists
   if ( -e $filename ) {
     $response->logEvent( level=>'INFO', minimumVerbosity=>0, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
-      message=>"Loading BDQC KB from '$filename'.");
+      message=>"Loading BDQC KB from '$filename'");
     my $qckb =  retrieve($filename);
     $self->setQckb($qckb);
     $self->setIsChanged(0);
@@ -982,6 +999,8 @@ sub saveKb {
   }
 
   my $filename = "$kbRootPath.qckb.storable";
+  $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"Saving BDQC KB to '$filename' and .json", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
+
   store($qckb,$filename);
   $self->setIsChanged(0);
 
@@ -993,7 +1012,7 @@ sub saveKb {
   print OUTFILE $buffer;
   close(OUTFILE);
 
-  $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"BDQC KB saved to '$filename'.", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
+  $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"BDQC KB saved", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
