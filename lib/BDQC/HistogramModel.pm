@@ -133,7 +133,7 @@ sub create {
 
   $isImplemented = 1;
   my $nElements = scalar(@{$histograms}) || 1;
-  print "INFO: Input to HistogramModel has $nElements elements\n";
+  #print "INFO: Input to HistogramModel has $nElements elements\n";
   my $masterHistogram = {};
   my @sums = ();
   my $iHistogram = 0;
@@ -170,7 +170,7 @@ sub create {
 
   #### Then run that vector through the usual VectorModel
   use BDQC::VectorModel;
-  print "My resulting vector has ".scalar(@vector)." elements\n";
+  #print "My resulting vector has ".scalar(@vector)." elements\n";
   my $model = BDQC::VectorModel->new( vector=>\@vector );
   my $result = $model->create();
   $response->{model} = $result->{model};
