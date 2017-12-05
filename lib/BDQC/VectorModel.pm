@@ -176,7 +176,7 @@ sub create {
 
   } # end foreach $datum
 
-  #### Caclulatae the mean
+  #### Caclulate the mean
   if ( $stats->{nonNullElements} ) {
     $stats->{mean} = $stats->{sum} / $stats->{nonNullElements};
   }
@@ -258,6 +258,12 @@ sub create {
       my @sortedVector = sort numerically @numericalVector;
       $stats->{median} = $sortedVector[$nElements/2];
       $stats->{siqr} = ( ( $sortedVector[$nElements/4*3] - $sortedVector[$nElements/4] ) / 2 );
+
+      #### Caclulate the mean
+      if ( $stats->{nonNullElements} ) {
+        $stats->{mean} = $stats->{sum} / $stats->{nonNullElements};
+      }
+
     }
 
     #### Calculate the extremities at 3 times SIQR and outliers at 5 times SIQR
