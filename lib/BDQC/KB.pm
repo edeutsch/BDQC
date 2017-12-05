@@ -373,6 +373,7 @@ sub calcSignatures {
 
     foreach my $signatureName ( @{$signatureList} ) {
       my $moduleName = "BDQC::$signatureName";
+      #print "Running $moduleName\n";
       my $signature = $moduleName->new( filePath=>$filePath );
       #my $t0 = [gettimeofday];
       my $result = $signature->calcSignature();
