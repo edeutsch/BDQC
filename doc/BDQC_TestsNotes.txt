@@ -31,9 +31,20 @@ perl ../bin/bdqc.pl --kbRootPath test3_pmlib --dataDirectory C:\Users\edeutsch\D
 perl ../bin/bdqc.pl --kbRootPath test3_pmlib --calcSig --collate --calcModel
 perl ../bin/bdqc.pl --kbRootPath test3_pmlib --showOutliers
 
-#### A fourth test of reading some jpg files
+#### A fourth test of reading a small set of jpg files
+rm test4_jpgs.qckb.storable
+perl ../bin/bdqc.pl --kbRootPath test4_jpgs --dataDirectory C:\local\pictures\2017\03_March
+perl ../bin/bdqc.pl --kbRootPath test4_jpgs --calcSig --collate --calcModel
+perl ../bin/bdqc.pl --kbRootPath test4_jpgs --showOutliers
+
+#### A fourth test of reading a larger set of jpg files (300 MB)
 rm test4_jpgs.qckb.storable
 perl ../bin/bdqc.pl --kbRootPath test4_jpgs --dataDirectory C:\local\pictures\2017\02_February
 perl ../bin/bdqc.pl --kbRootPath test4_jpgs --calcSig --collate --calcModel
 perl ../bin/bdqc.pl --kbRootPath test4_jpgs --showOutliers
 
+#### A fifth test importing pre-existing .bdqc data from the Python version
+rm test5_PythonBdqcImport.qckb.storable
+perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --import Complete.filteredCNVs1000
+perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --collate --calcModel
+perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --showOutliers
