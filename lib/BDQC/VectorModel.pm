@@ -204,7 +204,7 @@ sub create {
 
   #### Determine a few classes of basic distributions (like allIdentical, TwoValued, allDifferent)
   my $nObservedValues = scalar(keys(%observedValues));
-  my $distributionFlags = { allIdentical=>0, TwoValued=>0, allDifferent=>0 };
+  my $distributionFlags = { allIdentical=>0, twoValued=>0, allDifferent=>0 };
   if ( $nObservedValues == 1 ) {
     $distributionFlags->{allIdentical} = 1;
   } elsif ( $nObservedValues == 2 ) {
