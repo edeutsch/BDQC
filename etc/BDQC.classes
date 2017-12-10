@@ -35,6 +35,7 @@ class BDQC.KB
     returns object Response
   method importSignatures
     parameter string inputFile required
+    parameter int32 importLimit optional
     returns object Response
   method calcSignatures
     returns object Response
@@ -43,6 +44,10 @@ class BDQC.KB
   method collateData
     returns object Response
   method getOutliers
+    returns object Response
+  method parsePlugins
+    parameter string pluginSignatures optional
+    parameter string pluginModels optional
     returns object Response
 class BDQC.FileSignature.Text
   attribute string filePath
@@ -54,16 +59,6 @@ class BDQC.FileSignature.Binary
   method calcSignature
     parameter attribute filePath
     returns object Response
-class BDQC.VectorModel
-  attribute string vector
-  method create
-    parameter attribute vector
-    returns object Response
-class BDQC.HistogramModel
-  attribute string histograms
-  method create
-    parameter attribute histograms
-    returns object Response
 class BDQC.FileSignature.XML
   attribute string filePath
   method calcSignature
@@ -73,4 +68,34 @@ class BDQC.FileSignature.Tabular
   attribute string filePath
   method calcSignature
     parameter attribute filePath
+    returns object Response
+class BDQC.DataModel
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Scalar
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Scalar.Number
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Scalar.String
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Histogram
+  attribute string vector
+  method create
+    parameter attribute vector
+    returns object Response
+class BDQC.DataModel.Array
+  attribute string vector
+  method create
+    parameter attribute vector
     returns object Response
