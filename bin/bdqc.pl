@@ -37,8 +37,11 @@ Options:
   --dataDirectory x   Full or relative directory path of the data to be scanned
   --calcSignatures    Calculate file signatures for all new files in the QC KB
   --importSignatures x Import .bdqc signatures from the specified external file
+  --importLimit N     Limit the number of signatures during import to N (for testing only)
   --collateData       Collate all the data from individual files in preparation for modeling
   --calcModels        Calculate file signature models for all files in the QC KB
+  --pluginModels      Substitute the default internal models and outlier detection with an external program
+  --pluginSignatures  Substitute the default internal signature calculators with an external program
   --showOutliers      Show all outliers in the QC KB
 
  e.g.:  $PROG_NAME --kbRootPath testqc --dataDirectory test1
@@ -49,7 +52,8 @@ EOU
 my %OPTIONS;
 unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "kbRootPath:s", "dataDirectory:s", "calcSignatures", "collateData",
-                   "calcModels", "showOutliers", "importSignatures:s", 
+                   "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
+                   "pluginModels:s", "pluginSignatures:s", 
   )) {
   print "$USAGE";
   exit 2;
@@ -74,81 +78,74 @@ sub main {
   my $debug = $OPTIONS{"debug"} || 0;
   my $testonly = $OPTIONS{'testonly'} || 0;
 
-  
+  my $response = BDQC::Response->new();
+  $response->setState( status=>'OK', message=>"Starting BDQC");
+
   #### Create the Quality Control Knowledge Base object
   my $qckb = BDQC::KB->new();
-  $qckb->createKb();
+  my $result = $qckb->createKb();
+  $response->mergeResponse( sourceResponse=>$result );
 
   #### If a KC QC file parameter was provided, see if there is already one to warm start with
   if ( $OPTIONS{kbRootPath} ) {
-    my $result = $qckb->loadKb( kbRootPath=>$OPTIONS{kbRootPath}, skipIfFileNotFound=>1 );
-    if ( $result->{status} ne 'OK' ) {
-      print $result->show();
-      exit 10;
-    }
+    $result = $qckb->loadKb( kbRootPath=>$OPTIONS{kbRootPath}, skipIfFileNotFound=>1 );
+    $response->mergeResponse( sourceResponse=>$result );
+  }
+
+  #### Parse the plugins options
+  if ( $result->{status} eq 'OK' && ( $OPTIONS{pluginSignatures} || $OPTIONS{pluginModels} ) ) {
+    my $result = $qckb->parsePlugins( pluginSignatures=>$OPTIONS{pluginSignatures}, pluginModels=>$OPTIONS{pluginModels}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
+    $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### Perform the scan of the dataPath
-  if ( $OPTIONS{dataDirectory} ) {
+  if ( $result->{status} eq 'OK' && $OPTIONS{dataDirectory} ) {
     my $result = $qckb->scanDataPath( dataDirectory=>$OPTIONS{dataDirectory}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
-    if ( $result->{status} ne 'OK' ) {
-      print $result->show();
-      exit 11;
-    }
+    $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### Calculate signatures for all files in the KB
-  if ( $OPTIONS{calcSignatures} ) {
+  if ( $result->{status} eq 'OK' && $OPTIONS{calcSignatures} ) {
     my $result = $qckb->calcSignatures( verbose => $verbose, quiet=>$quiet, debug=>$debug );
-    if ( $result->{status} ne 'OK' ) {
-      print $result->show();
-      exit 11;
-    }
+    $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### Important signatures from an external file into the KB
-  if ( $OPTIONS{importSignatures} ) {
-    my $result = $qckb->importSignatures( inputFile=>$OPTIONS{importSignatures}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
-    if ( $result->{status} ne 'OK' ) {
-      print $result->show();
-      exit 12;
-    }
+  if ( $result->{status} eq 'OK' && $OPTIONS{importSignatures} ) {
+    my $result = $qckb->importSignatures( inputFile=>$OPTIONS{importSignatures}, importLimit=>$OPTIONS{importLimit}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
+    $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### Calculate models and outliers for all files in the KB by filetype
-  if ( $OPTIONS{collateData} ) {
+  if ( $result->{status} eq 'OK' && $OPTIONS{collateData} ) {
     my $result = $qckb->collateData( verbose => $verbose, quiet=>$quiet, debug=>$debug );
-    if ( $result->{status} ne 'OK' ) {
-      print $result->show();
-      exit 11;
-    }
+    $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### Calculate models and outliers for all files in the KB by filetype
-  if ( $OPTIONS{calcModels} ) {
+  if ( $result->{status} eq 'OK' && $OPTIONS{calcModels} ) {
     my $result = $qckb->calcModels( verbose => $verbose, quiet=>$quiet, debug=>$debug );
-    if ( $result->{status} ne 'OK' ) {
-      print $result->show();
-      exit 11;
-    }
+    $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### Show the deviations found in the data
-  if ( $OPTIONS{showOutliers} ) {
+  if ( $result->{status} eq 'OK' && $OPTIONS{showOutliers} ) {
     my $result = $qckb->getOutliers( verbose => $verbose, quiet=>$quiet, debug=>$debug );
-    if ( $result->{status} ne 'OK' ) {
-      print $result->show();
-      exit 11;
-    }
+    $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### If a KC QC file parameter was provided, write out the KB
-  if ( $OPTIONS{kbRootPath} ) {
+  if ( $result->{status} eq 'OK' && $OPTIONS{kbRootPath} ) {
     my $result = $qckb->saveKb( kbRootPath=>$OPTIONS{kbRootPath}, verbose => $verbose, quiet=>$quiet, debug=>$debug, testonly=>$testonly );
-    if ( $result->{status} ne 'OK' ) {
-      print $result->show();
-      exit 12;
-    }
+    $response->mergeResponse( sourceResponse=>$result );
+  }
+
+  #### If we're in an error state, show the results and exit abnormally
+  if ( $response->{status} ne 'OK' ) {
+    print "==============================\n";
+    print "bdqc.pl terminated with errors:\n";
+    print $response->show();
+    exit 12;
   }
 
   return;
