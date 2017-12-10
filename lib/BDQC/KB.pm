@@ -21,8 +21,7 @@ my $VERSION = '0.0.1';
 
 #### BEGIN CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
-
-
+use BDQC::DataModel;
 
 #### END CUSTOMIZED CLASS-LEVEL VARIABLES AND CODE
 
@@ -234,30 +233,30 @@ sub calcModels {
 
   my $qckb = $self->getQckb();
   $self->setIsChanged(1);
-  use BDQC::VectorModel;
-  use BDQC::HistogramModel;
 
   #### For each fileType, signature, and attribute, build a model of the observed data
+  my $nOperations = 0;
   foreach my $fileType ( keys(%{$qckb->{fileTypes}}) ) {
     foreach my $signature ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}}) ) {
       foreach my $attribute ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}}) ) {
         my $values = $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{values};
         my $model;
-        if ( ref($values->[0]) eq 'HASH' ) {
-          $model = BDQC::HistogramModel->new( histograms=>$values );
-        } else {
-         #print "$signature.$attribute: ".join(",",@{$values})."\n";
-          $model = BDQC::VectorModel->new( vector=>$values );
-        }
+        $model = BDQC::DataModel->new( vector=>$values );
         my $result = $model->create();
-        if ( $result->{status} eq 'OK' ) {
-          $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{model} = $result->{model};
-        } else {
-          $response->mergeResponse( responseToMerge=>$result );
-        }
+        $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{model} = $result->{model};
+        $response->mergeResponse( sourceResponse=>$result );
+        $nOperations++;
       }
     }
   }
+
+  #### Create an entry in the updates log about what this did
+  my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
+  my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
+    operation => $METHOD,
+    comment => "Calculate models of what seems normal for all $nOperations attributes of all signatures"
+  };
+  push(@{$qckb->{updates}},$updateEntry);
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -392,6 +391,14 @@ sub calcSignatures {
 
   $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"Calculated signatures for $nFiles files", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
+  #### Create an entry in the updates log about what this did
+  my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
+  my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
+    operation => $METHOD,
+    comment => "Calculate signatures for $nFiles files"
+  };
+  push(@{$qckb->{updates}},$updateEntry);
+
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
   if ( ! $isImplemented ) {
@@ -454,36 +461,71 @@ sub collateData {
   $self->setIsChanged(1);
 
   my $nFiles = 0;
+  my $allAttributes;
 
   #### First scan through all the files and assign them to a fileType. Models will be built within fileTypes
   foreach my $fileTag ( keys(%{$qckb->{files}}) ) {
-    $nFiles++;
+
+    #### Get the signatures for this file and the fileTypeName (commonly a file extention)
     my $signatures = $qckb->{files}->{$fileTag}->{signatures};
     my $fileTypeName = $signatures->{fileType}->{typeName};
 
+    #### If this fileTypeName has not yet been added, do so
     unless ( $qckb->{fileTypes}->{$fileTypeName} ) {
       $qckb->{fileTypes}->{$fileTypeName} = { name=>$fileTypeName, fileTagList=>[], signatures=>{} };
     }
 
+    #### If this is a new file, then add it to the file of files for this filetype
     if ( $signatures->{tracking}->{isNew} ) {
       push(@{$qckb->{fileTypes}->{$fileTypeName}->{fileTagList}},$fileTag);
+
+      #### Also create a complete hash of all attributes for each signature
+      foreach my $signature ( keys(%{$signatures}) ) {
+        foreach my $attribute ( keys(%{$signatures->{$signature}}) ) {
+          $allAttributes->{fileTypes}->{$fileTypeName}->{signatures}->{$signature}->{attributes}->{$attribute}++;
+        }
+      }
     }
+    $nFiles++;
   }
 
   #### For each fileType, extract all the signatures for which we'll make a model
-  foreach my $fileType ( keys(%{$qckb->{fileTypes}}) ) {
-    my $signatures = $qckb->{fileTypes}->{$fileType}->{signatures};
-    foreach my $fileTag ( @{$qckb->{fileTypes}->{$fileType}->{fileTagList}} ) {
+  foreach my $fileTypeName ( keys(%{$qckb->{fileTypes}}) ) {
+    my $signatures = $qckb->{fileTypes}->{$fileTypeName}->{signatures};
+    foreach my $fileTag ( @{$qckb->{fileTypes}->{$fileTypeName}->{fileTagList}} ) {
       foreach my $signature ( keys(%{$qckb->{files}->{$fileTag}->{signatures}}) ) {
-        foreach my $attribute ( keys(%{$qckb->{files}->{$fileTag}->{signatures}->{$signature}}) ) {
+
+        #### This could be a problem! leave holes?
+        #foreach my $attribute ( keys(%{$qckb->{files}->{$fileTag}->{signatures}->{$signature}}) ) {
+
+        #### Loop over the complete list of all attributes we collected for this signature
+        foreach my $attribute ( keys(%{$allAttributes->{fileTypes}->{$fileTypeName}->{signatures}->{$signature}->{attributes}}) ) {
+
+          #### If we haven't encountered this attribute yet, then create an empty array
           unless ( $signatures->{$signature}->{$attribute}->{values} ) {
             $signatures->{$signature}->{$attribute}->{values} = [];
           }
-          push(@{$signatures->{$signature}->{$attribute}->{values}},$qckb->{files}->{$fileTag}->{signatures}->{$signature}->{$attribute});
+
+          #### The fileAttribute starts as undef
+          my $fileAttribute;
+          #### See if it even exists for this file (it might not). If so, extract it
+          if ( exists($qckb->{files}->{$fileTag}->{signatures}->{$signature}->{$attribute}) ) {
+            $fileAttribute = $qckb->{files}->{$fileTag}->{signatures}->{$signature}->{$attribute};
+          }
+          #### Push whatever we found or didn't find onto the list. This list might have some nulls
+          push(@{$signatures->{$signature}->{$attribute}->{values}},$fileAttribute);
         }
       }
     }
   }
+
+  #### Create an entry in the updates log about what this did
+  my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
+  my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
+    operation => $METHOD,
+    comment => "Collated all the signatures from all files into a matrix for analysis"
+  };
+  push(@{$qckb->{updates}},$updateEntry);
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -545,7 +587,7 @@ sub createKb {
   #### Create the qckb data structure and fill it with basic information
   my $qckb = {};
   $self->setQckb($qckb);
-  $qckb->{type} = "BDQC";
+  $qckb->{kBtype} = "BDQC";
   $self->setIsChanged(1);
 
   my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
@@ -553,12 +595,10 @@ sub createKb {
 
   #### Empty array for updates
   $qckb->{updates} = [];
-  $qckb->{changeLog} = [];
   $qckb->{dataDirectories} = [];
 
   $qckb->{files} = {};
   $qckb->{fileTypes} = {};
-  $qckb->{models} = [];
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -620,6 +660,7 @@ sub getOutliers {
 
   my $qckb = $self->getQckb();
   my $outliers;
+  my $nOutlierFiles;
 
   #### For each fileType, signature, and attribute, record if any deviations are outliers
   foreach my $fileType ( keys(%{$qckb->{fileTypes}}) ) {
@@ -669,6 +710,7 @@ sub getOutliers {
   foreach my $fileType ( sort keys(%{$outliers->{fileTypes}}) ) {
     foreach my $outlierFileTagName ( sort keys(%{$outliers->{fileTypes}->{$fileType}->{fileTags}}) ) {
       print "$outlierFileTagName is an outlier because:\n";
+      $nOutlierFiles++;
       my $outlierFileTagList = $outliers->{fileTypes}->{$fileType}->{fileTags}->{$outlierFileTagName};
       foreach my $outlier ( @{$outlierFileTagList} ) {
         my $signature = $outlier->{signature};
@@ -677,9 +719,14 @@ sub getOutliers {
         my $deviation = $outlier->{deviation}->{deviation};
         $value = '(null)' if ( ! defined($value) );
         $value = substr($value,0,70)."...." if ( length($value)>74 );
-        print "  $signature.$attribute: Value '$value' is an outlier at $deviation times SIQR\n";
+        print "  $signature.$attribute: Value '$value' is an outlier at $deviation times typical deviation\n";
       }
     }
+  }
+
+  #### If there were none, print that
+  unless ( $nOutlierFiles ) {
+    print " - No outliers found\n";
   }
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
@@ -723,6 +770,7 @@ sub importSignatures {
   print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
   }
   #### Process specific parameters
+  my $importLimit = processParameters( name=>'importLimit', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   my $inputFile = processParameters( name=>'inputFile', required=>1, allowUndef=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   #### Die if any unexpected parameters are passed
   my $unexpectedParameters = '';
@@ -775,50 +823,56 @@ sub importSignatures {
         $tmp->{extrinsic}->{readable} = $inputBdqc->{$file}->{"bdqc.builtin.extrinsic"}->{readable};
         $tmp->{fileType}->{typeName} = $components->{uncompressedExtension};
 
-        if ( $inputBdqc->{$file}->{"bdqc.builtin.tabular"} ) {
-          my $tabular = $inputBdqc->{$file}->{"bdqc.builtin.tabular"};
-          $tmp->{tabular}->{"character_histogram"} = $tabular->{"character_histogram"};
-          foreach my $attribute ( keys(%{$tabular->{tabledata}}) ) {
-            my $value = $tabular->{tabledata}->{$attribute};
-            if ( ref($value) eq 'HASH' ) {
-              print "$attribute is a HASH\n";
-            } elsif ( ref($value) eq 'ARRAY' ) {
-              if ( $attribute eq 'columns' ) {
-                my $iColumn = 0;
-                foreach my $column ( @{$tabular->{tabledata}->{$attribute}} ) {
-                  foreach my $columnAttributeName ( keys(%{$column}) ) {
-                    my $columnAttributeValue = $column->{$columnAttributeName};
-                    if ( ref($columnAttributeValue) eq 'ARRAY' ) {
-                      #$columnAttributeValue = join(",",@{$columnAttributeValue});
-                      $columnAttributeValue = "TemporarilySuppressed";              # FIXME
-                    } elsif ( ref($columnAttributeValue) eq 'HASH' ) {
-                      # leave as is
-                    } elsif ( ref($columnAttributeValue) eq '' ) {
-                      # leave as is
-                    }
-                    $tmp->{tabular}->{"column$iColumn.$columnAttributeName"} = $columnAttributeValue;
-                  }
-                  $iColumn++;
-                }
-              } else {
-                print "$attribute is a ARRAY\n";
-              }
-            } elsif ( ref($value) eq '' || ref($value) eq 'JSON::PP::Boolean' ) {
-              $tmp->{tabular}->{"tabular.$attribute"} = $value;
+        #### Loop over all the other signatures and import them
+        foreach my $signatureName ( keys(%{$inputBdqc->{$file}}) ) {
+          #### Skip the ones that we've already translated by hand
+          next if ( $signatureName eq 'bdqc.builtin.extrinsic' );
+          next if ( $signatureName eq 'bdqc.builtin.filetype' );
+          #### Loop over each attribute or container
+          foreach my $attributeName ( keys(%{$inputBdqc->{$file}->{$signatureName}}) ) {
+            my $attributeValue = $inputBdqc->{$file}->{$signatureName}->{$attributeName};
+
+            #### If this attribute is already a scalar, then just store it
+            if ( ref($attributeValue) eq '' ) {
+              $tmp->{$signatureName}->{$attributeName} = $attributeValue;
+              print "Storing at base $signatureName.$attributeName = $attributeValue\n";
+            #### Else if it complex, flatten it recursively into keys and values that are scalar, hash, or array
             } else {
-              print "For $attribute, ref is '".ref($value)."'\n";
+              print "Going complex!\n";
+              my $flattenedAttributes = flattenAttributes($attributeName,$attributeValue);
+              foreach my $flattenendAttributeName ( keys(%{$flattenedAttributes}) ) {
+                print "  Adding $signatureName.$flattenendAttributeName = $flattenedAttributes->{$flattenendAttributeName}\n";
+                $tmp->{$signatureName}->{$flattenendAttributeName} = $flattenedAttributes->{$flattenendAttributeName};
+              }
             }
-          }
-        }
+              
+          } # end foreach attributeName
+        } # end foreach signatureName
 
 
         #delete($tmp->{signatures}->{"bdqc.builtin.tabular"});
         $qckb->{files}->{$fileTag}->{signatures} = $tmp;
         $iFile++;
-        #last if ( $iFile > 300 );
+
+        #### End early if requested
+        if ( $importLimit ) {
+          if ( $iFile >= $importLimit ) {
+            $response->logEvent( level=>'INFO', minimumVerbosity=>0, verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+              message=>"Importing ended after $importLimit records as requested");
+            last;
+          }
+        }
       }
 
       $self->setIsChanged(1);
+
+      #### Create an entry in the updates log about what this did
+      my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
+      my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
+        operation => $METHOD,
+        comment => "Imported signatures from external file '$inputFile'"
+      };
+      push(@{$qckb->{updates}},$updateEntry);
 
     } else {
       $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"ImportFileCannotBeOpened", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
@@ -871,7 +925,7 @@ sub loadKb {
   print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
   }
   #### Process specific parameters
-  my $kbRootPath = processParameters( name=>'kbRootPath', required=>0, allowUndef=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  my $kbRootPath = processParameters( name=>'kbRootPath', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   if ( ! defined($kbRootPath) ) {
     $kbRootPath = $self->getKbRootPath();
   } else {
@@ -885,7 +939,7 @@ sub loadKb {
     return $response;
   }
 
-  my $skipIfFileNotFound = processParameters( name=>'skipIfFileNotFound', required=>0, allowUndef=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  my $skipIfFileNotFound = processParameters( name=>'skipIfFileNotFound', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   #### Die if any unexpected parameters are passed
   my $unexpectedParameters = '';
   foreach my $parameter ( keys(%parameters) ) { $unexpectedParameters .= "ERROR: unexpected parameter '$parameter'\n"; }
@@ -937,6 +991,63 @@ sub loadKb {
 }
 
 
+sub parsePlugins {
+###############################################################################
+# parsePlugins
+###############################################################################
+  my $METHOD = 'parsePlugins';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+  my %parameters = @_;
+
+  #### Define standard parameters
+  my ( $response, $debug, $verbose, $quiet, $testonly, $outputDestination, $rmiServer );
+
+  {
+  #### Set up a response object
+  $response = BDQC::Response->new();
+  $response->setState( status=>'NOTSET', message=>"Status not set in method $METHOD");
+
+  #### Process standard parameters
+  $debug = processParameters( name=>'debug', required=>0, allowUndef=>0, default=>0, overrideIfFalse=>$DEBUG, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $verbose = processParameters( name=>'verbose', required=>0, allowUndef=>0, default=>0, overrideIfFalse=>$VERBOSE, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $quiet = processParameters( name=>'quiet', required=>0, allowUndef=>0, default=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $testonly = processParameters( name=>'testonly', required=>0, allowUndef=>0, default=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $outputDestination = processParameters( name=>'outputDestination', required=>0, allowUndef=>0, default=>'STDERR', parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  $rmiServer = processParameters( name=>'rmiServer', required=>0, allowUndef=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
+  }
+  #### Process specific parameters
+  my $pluginModels = processParameters( name=>'pluginModels', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  my $pluginSignatures = processParameters( name=>'pluginSignatures', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  #### Die if any unexpected parameters are passed
+  my $unexpectedParameters = '';
+  foreach my $parameter ( keys(%parameters) ) { $unexpectedParameters .= "ERROR: unexpected parameter '$parameter'\n"; }
+  die("CALLING ERROR [$METHOD]: $unexpectedParameters") if ($unexpectedParameters);
+
+  #### Return if there was a problem with the required parameters
+  return $response if ( $response->{errorCode} =~ /MissingParameter/i );
+
+  #### Set the default state to not implemented. Do not change this. Override later
+  my $isImplemented = 0;
+
+  #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
+
+
+  #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
+  {
+  if ( ! $isImplemented ) {
+    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>"Method${METHOD}NotImplemented", message=>"Method $METHOD has not yet be implemented", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
+  }
+
+  #### Update the status codes and return
+  $response->setState( status=>'OK', message=>"Method $METHOD completed normally") if ( $response->{status} eq 'NOTSET' );
+  print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $debug );
+  }
+  return $response;
+}
+
+
 sub saveKb {
 ###############################################################################
 # saveKb
@@ -964,7 +1075,7 @@ sub saveKb {
   print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
   }
   #### Process specific parameters
-  my $kbRootPath = processParameters( name=>'kbRootPath', required=>0, allowUndef=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  my $kbRootPath = processParameters( name=>'kbRootPath', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   if ( ! defined($kbRootPath) ) {
     $kbRootPath = $self->getKbRootPath();
   } else {
@@ -1061,7 +1172,7 @@ sub scanDataPath {
   print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
   }
   #### Process specific parameters
-  my $dataDirectory = processParameters( name=>'dataDirectory', required=>0, allowUndef=>0, parameters=>\%parameters, caller=>$METHOD, response=>$response );
+  my $dataDirectory = processParameters( name=>'dataDirectory', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   if ( ! defined($dataDirectory) ) {
     $dataDirectory = $self->getDataDirectory();
   } else {
@@ -1200,6 +1311,14 @@ sub scanDataPath {
   $response->{stats} = \%stats;
   $response->logEvent( level=>'INFO', minimumVerbosity=>0, message=>"$stats{totalFiles} files ($stats{totalSize} bytes) scanned. $stats{newFiles} files are new to this scan.", verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination );
 
+  #### Create an entry in the updates log about what this did
+  my ($sec,$min,$hour,$mday,$mon,$year) = localtime();
+  my $updateEntry = { datetime=>sprintf("%d-%d-%d %d:%d:%d",1900+$year,$mon+1,$mday,$hour,$min,$sec),
+    operation => $METHOD,
+    comment => "Scanned data directory '$dataDirectory' and added $stats{newFiles} new files"
+  };
+  push(@{$qckb->{updates}},$updateEntry);
+
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
   if ( ! $isImplemented ) {
@@ -1289,5 +1408,87 @@ sub splitFilePath {
   return $components;
 }
 
+sub flattenAttributes {
+###############################################################################
+# flattenAttributes
+# Reduce the depth of attributes to the top level, except permit hashes and
+# arrays of scalars
+###############################################################################
+  my ($attributeName,$attributeValue) = @_;
+
+  my $result;
+
+  #### If the passed attributeValue is just a scalar, then record it as is (probably should never happen?)
+  if ( ref($attributeValue) eq '' || ref($attributeValue) eq 'JSON::PP::Boolean' ) {
+    $result->{attributeName} = $attributeValue;
+
+  #### Else if this is a HASH then process it
+  } elsif ( ref($attributeValue) eq 'HASH' ) {
+
+    #### First loop through to see if they're all scalars or not
+    my $allAreScalars = 1;
+    foreach my $key ( keys(%{$attributeValue}) ) {
+      my $value = $attributeValue->{$key};
+      if ( ref($value) ne '' && ref($value) ne 'JSON::PP::Boolean' ) {
+        $allAreScalars = 0;
+      }
+    }
+      
+    #### If they're all scalars, then return this as a histogram as is
+    if ( $allAreScalars ) {
+      $result->{$attributeName} = $attributeValue;
+
+    #### But if at least one is complex, then record the scalars as attributes and recurse into the complex ones
+    } else {
+      foreach my $key ( keys(%{$attributeValue}) ) {
+        my $value = $attributeValue->{$key};
+        if ( ref($value) eq '' || ref($value) eq 'JSON::PP::Boolean' ) {
+          $result->{"$attributeName.$key"} = $value;
+        } else {
+          my $recursedResult = flattenAttributes("$attributeName.$key",$value);
+          foreach my $recursedKey ( keys(%{$recursedResult}) ) {
+            $result->{$recursedKey} = $recursedResult->{$recursedKey};
+          }
+        }
+      }
+    }
+
+  #### Else if this is an ARRAY then process it
+  } elsif ( ref($attributeValue) eq 'ARRAY' ) {
+
+    #### First loop through to see if they're all scalars or not
+    my $allAreScalars = 1;
+    foreach my $value ( @{$attributeValue} ) {
+      if ( ref($value) ne '' && ref($value) ne 'JSON::PP::Boolean' ) {
+        $allAreScalars = 0;
+      }
+    }
+      
+    #### If they're all scalars, then return this as a histogram as is
+    if ( $allAreScalars ) {
+      $result->{$attributeName} = $attributeValue;
+
+    #### But if at least one is complex, then record the scalars as attributes and recurse into the complex ones
+    } else {
+      my $i = 0;
+      foreach my $value ( @{$attributeValue} ) {
+        if ( ref($value) eq '' || ref($value) eq 'JSON::PP::Boolean' ) {
+          $result->{"$attributeName.$i"} = $value;
+        } else {
+          my $recursedResult = flattenAttributes("$attributeName.$i",$value);
+          foreach my $recursedKey ( keys(%{$recursedResult}) ) {
+            $result->{$recursedKey} = $recursedResult->{$recursedKey};
+          }
+        }
+        $i++;
+      }
+    }
+
+  }
+  
+  return $result;
+}
+
+  
 ###############################################################################
 1;
