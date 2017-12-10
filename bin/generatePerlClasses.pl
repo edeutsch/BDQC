@@ -809,7 +809,11 @@ EOU
       my $ucfirstParameter = ucfirst($parameter);
       my ($dummy,$type,$name,$necessity,$constraints) = @{$ooapiDefinition->{classes}->{$class}->{methods}->{$method}->{parameters}->{$parameter}};
       my $required = 0;
-      $required = 1 if ( $necessity eq 'required' );
+      my $allowUndef = 1;
+      if ( $necessity eq 'required' ) {
+        $required = 1;
+        $allowUndef = 0;
+      }
       if ( $type eq 'attribute' ) {
         unless ( $ooapiDefinition->{classes}->{$class}->{attributes}->{$name} ) {
           print "ERROR: In method $method, parameter $parameter is not attribute\n";
@@ -819,7 +823,7 @@ EOU
         $rmiParametersBuffer .= "\$methodParameters->{$parameter} = \$$parameter;\n";
       }
       print OUTFILE <<EOU;
-  my \$$parameter = processParameters( name=>'$parameter', required=>$required, allowUndef=>0, parameters=>\\\%parameters, caller=>\$METHOD, response=>\$response );
+  my \$$parameter = processParameters( name=>'$parameter', required=>$required, allowUndef=>$allowUndef, parameters=>\\\%parameters, caller=>\$METHOD, response=>\$response );
 EOU
       if ( $type eq 'attribute' ) {
         print OUTFILE <<EOU;
