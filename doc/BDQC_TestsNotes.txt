@@ -23,7 +23,7 @@ perl ../bin/bdqc.pl --kbRootPath test1_UniformQlogFiles --showOutliers
 rm  test2_UniformQlogFiles_1outlier.qckb.storable
 perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --dataDirectory test2_UniformQlogFiles_1outlier
 perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --calcSig --collate --calcModel
-perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --showOutliers
+perl ../bin/bdqc.pl --kbRootPath test2_UniformQlogFiles_1outlier --showOutliers --skip "extrinsic.mtime"
 
 #### A third test of reading some Perl pm files
 rm test3_pmlib.qckb.storable
