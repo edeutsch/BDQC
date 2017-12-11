@@ -48,3 +48,20 @@ rm test5_PythonBdqcImport.qckb.storable
 perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --import Complete.filteredCNVs1000
 perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --collate --calcModel
 perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --showOutliers
+
+#### A sixth test for testing out the example custom external signature
+rm  test6_CustomSignature.qckb.storable
+perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --dataDirectory test2_UniformQlogFiles_1outlier
+perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcSig --pluginSignatures "*all:add=perl ../bin/customBinarySignatureExample.pl"
+perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --collate
+perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcModel
+perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --showOutliers
+
+
+perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcSig --pluginSignatures "*all:set=perl ../bin/customBinarySignatureExample.pl"
+
+
+
+
+
+
