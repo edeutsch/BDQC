@@ -99,3 +99,9 @@ class BDQC.DataModel.Array
   method create
     parameter attribute vector
     returns object Response
+class BDQC.UI
+  method viewOutliers
+    parameter kbRootPath
+  method outlierDetails
+    parameter kbRootPath
+    parameter outlier
