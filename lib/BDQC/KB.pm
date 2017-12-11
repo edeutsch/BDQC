@@ -914,13 +914,13 @@ sub importSignatures {
             #### If this attribute is already a scalar, then just store it
             if ( ref($attributeValue) eq '' ) {
               $tmp->{$signatureName}->{$attributeName} = $attributeValue;
-              print "Storing at base $signatureName.$attributeName = $attributeValue\n";
+              #print "Storing at base $signatureName.$attributeName = $attributeValue\n";
             #### Else if it complex, flatten it recursively into keys and values that are scalar, hash, or array
             } else {
-              print "Going complex!\n";
+              #print "Going complex!\n";
               my $flattenedAttributes = flattenAttributes($attributeName,$attributeValue);
               foreach my $flattenendAttributeName ( keys(%{$flattenedAttributes}) ) {
-                print "  Adding $signatureName.$flattenendAttributeName = $flattenedAttributes->{$flattenendAttributeName}\n";
+                #print "  Adding $signatureName.$flattenendAttributeName = $flattenedAttributes->{$flattenendAttributeName}\n";
                 $tmp->{$signatureName}->{$flattenendAttributeName} = $flattenedAttributes->{$flattenendAttributeName};
               }
             }
