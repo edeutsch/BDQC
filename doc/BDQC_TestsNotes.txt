@@ -57,10 +57,25 @@ perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --collate
 perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcModel
 perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --showOutliers
 
-
 perl ../bin/bdqc.pl --kbRootPath test6_CustomSignature --calcSig --pluginSignatures "*all:set=perl ../bin/customBinarySignatureExample.pl"
 
 
+==============
+
+
+#### More tests with some data from Dave Campbell
+cd /net/db/projects/BDDS/BDQC/edeutsch-GitHub/BDQC/testdata
+rm test10*
+../bin/bdqc.pl --kbRootPath test10_xml --data ../../../testdata/xml
+../bin/bdqc.pl --kbRootPath test10_xml --calcSig --collate --calcModel --showOutliers
+
+rm test11*
+../bin/bdqc.pl --kbRootPath test11_tsv --data ../../../testdata/tsv
+../bin/bdqc.pl --kbRootPath test11_tsv --calcSig --collate --calcModel --showOutliers
+
+rm test12*
+../bin/bdqc.pl --kbRootPath test12_pepxml --data ../../../testdata/pepxml
+../bin/bdqc.pl --kbRootPath test12_pepxml --calcSig --collate --calcModel --showOutliers
 
 
 
