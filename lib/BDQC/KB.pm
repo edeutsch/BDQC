@@ -214,6 +214,7 @@ sub calcModels {
   print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
   }
   #### Process specific parameters
+  my $skipAttributes = processParameters( name=>'skipAttributes', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   #### Die if any unexpected parameters are passed
   my $unexpectedParameters = '';
   foreach my $parameter ( keys(%parameters) ) { $unexpectedParameters .= "ERROR: unexpected parameter '$parameter'\n"; }
@@ -234,11 +235,21 @@ sub calcModels {
   my $qckb = $self->getQckb();
   $self->setIsChanged(1);
 
+  #### If the user specified some attributes to skip, create a hash of them
+  my %attributesToSkip = ();
+  if ( $skipAttributes ) {
+    my @attributes = split(/[,;]/,$skipAttributes);
+    foreach my $attribute ( @attributes ) {
+      $attributesToSkip{$attribute} = 1;
+    }
+  }
+
   #### For each fileType, signature, and attribute, build a model of the observed data
   my $nOperations = 0;
   foreach my $fileType ( keys(%{$qckb->{fileTypes}}) ) {
     foreach my $signature ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}}) ) {
       foreach my $attribute ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}}) ) {
+        next if ( $attributesToSkip{"$signature.$attribute"} );
         my $values = $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{values};
         my $model;
         $model = BDQC::DataModel->new( vector=>$values );
@@ -359,26 +370,53 @@ sub calcSignatures {
       $filePath = "zcat $filePath |";   #FIXME
     }
     my $knownExtension = $knownExtensions{$signatures->{extrinsic}->{uncompressedExtension}};
-    my $signatureList;
+    my @signatureList;
     my $fileTypeName = $signatures->{extrinsic}->{uncompressedExtension};
     if ( $knownExtension ) {
-      $signatureList = $knownExtension->{signatureList};
+      @signatureList = @{$knownExtension->{signatureList}};
       $fileTypeName = $knownExtension->{specificTypeName};
     } else {
       #$signatureList = [ 'FileSignature::UnknownFiletype' ];
-      $signatureList = [ 'FileSignature::Text' ];
+      @signatureList = ( 'FileSignature::Text' );
     }
     $signatures->{fileType}->{typeName} = $fileTypeName;
 
-    foreach my $signatureName ( @{$signatureList} ) {
+    #### Determine if there is some custom signatures that apply here, and update the signatureList
+    if ( $qckb->{pluginSignatures} ) {
+      foreach my $testFileTypeName ( ( "*all",$fileTypeName) ) {
+        if ( $qckb->{pluginSignatures}->{$testFileTypeName} ) {
+          #print "yes, there's a $testFileTypeName\n";
+          if ( $qckb->{pluginSignatures}->{$testFileTypeName}->{set} ) {
+            @signatureList = @{$qckb->{pluginSignatures}->{$testFileTypeName}->{set}};
+          }
+          if ( $qckb->{pluginSignatures}->{$testFileTypeName}->{add} ) {
+            push(@signatureList, @{$qckb->{pluginSignatures}->{$testFileTypeName}->{add}});
+            #print "  yes, there's an add for that. Now: ".join(",",@signatureList)."\n";
+          }
+        }
+      }
+    }
+
+    #### Loop over each signature to process and add the results
+    foreach my $signatureName ( @signatureList ) {
       my $moduleName = "BDQC::$signatureName";
-      #print "Running $moduleName\n";
-      my $signature = $moduleName->new( filePath=>$filePath );
-      #my $t0 = [gettimeofday];
-      my $result = $signature->calcSignature();
-      #my $t1 = [gettimeofday];
-      #my $elapsed = tv_interval($t0,$t1);
-      #print "$fileTag  $elapsed\n";
+      my $result;
+      if ( $signatureName =~ /^FileSignature::/ ) {
+        #print "Running $moduleName\n";
+        my $signature = $moduleName->new( filePath=>$filePath );
+        #my $t0 = [gettimeofday];
+        $result = $signature->calcSignature();
+        #my $t1 = [gettimeofday];
+        #my $elapsed = tv_interval($t0,$t1);
+        #print "$fileTag  $elapsed\n";
+      } else {
+        my @resultText = `$signatureName --filename $filePath`;
+        $result = decode_json(join("\n",@resultText));
+        if ( $result->{signatureName} ) {
+          $signatureName = $result->{signatureName};
+        }
+      }
+
       if ( $result->{status} eq 'OK' ) {
         $signatures->{$signatureName} = $result->{signature};
       } else {
@@ -440,6 +478,7 @@ sub collateData {
   print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
   }
   #### Process specific parameters
+  my $skipAttributes = processParameters( name=>'skipAttributes', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   #### Die if any unexpected parameters are passed
   my $unexpectedParameters = '';
   foreach my $parameter ( keys(%parameters) ) { $unexpectedParameters .= "ERROR: unexpected parameter '$parameter'\n"; }
@@ -463,6 +502,28 @@ sub collateData {
   my $nFiles = 0;
   my $allAttributes;
 
+  #### Create a list of attributes that should not be collated, mostly because they're not useful or redundant
+  my %attributesToSkip = (
+    "fileType"=>1,
+    "extrinsic.uncompressedExtension"=>1,
+    "extrinsic.basename"=>1,
+    "extrinsic.extension"=>1,
+    "tracking.isNew"=>1,
+    "tracking.fileTag"=>1,
+    "tracking.dataDirectoryId"=>1,
+    "tracking.filePath"=>1,
+    "tracking.filename"=>1,
+  );
+
+  #### If the user specified some attributes to skip, add those
+  if ( $skipAttributes ) {
+    my @attributes = split(/[,;]/,$skipAttributes);
+    foreach my $attribute ( @attributes ) {
+      $attributesToSkip{$attribute} = 1;
+    }
+  }
+
+  
   #### First scan through all the files and assign them to a fileType. Models will be built within fileTypes
   foreach my $fileTag ( keys(%{$qckb->{files}}) ) {
 
@@ -482,7 +543,15 @@ sub collateData {
       #### Also create a complete hash of all attributes for each signature
       foreach my $signature ( keys(%{$signatures}) ) {
         foreach my $attribute ( keys(%{$signatures->{$signature}}) ) {
-          $allAttributes->{fileTypes}->{$fileTypeName}->{signatures}->{$signature}->{attributes}->{$attribute}++;
+
+          #### Check to see if this signature/attribute is one we should skip, or else add it to the list
+          if ( $attributesToSkip{$signature} ) {
+            #print "Don't bother collating all of signature $signature\n";
+          } elsif ( $attributesToSkip{"$signature.$attribute"} ) {
+            #print "Don't bother collating $signature.$attribute\n";
+          } else {
+            $allAttributes->{fileTypes}->{$fileTypeName}->{signatures}->{$signature}->{attributes}->{$attribute}++;
+          }
         }
       }
     }
@@ -494,9 +563,6 @@ sub collateData {
     my $signatures = $qckb->{fileTypes}->{$fileTypeName}->{signatures};
     foreach my $fileTag ( @{$qckb->{fileTypes}->{$fileTypeName}->{fileTagList}} ) {
       foreach my $signature ( keys(%{$qckb->{files}->{$fileTag}->{signatures}}) ) {
-
-        #### This could be a problem! leave holes?
-        #foreach my $attribute ( keys(%{$qckb->{files}->{$fileTag}->{signatures}->{$signature}}) ) {
 
         #### Loop over the complete list of all attributes we collected for this signature
         foreach my $attribute ( keys(%{$allAttributes->{fileTypes}->{$fileTypeName}->{signatures}->{$signature}->{attributes}}) ) {
@@ -641,6 +707,7 @@ sub getOutliers {
   print "DEBUG: Entering $CLASS.$METHOD\n" if ( $debug && !$DEBUG );
   }
   #### Process specific parameters
+  my $skipAttributes = processParameters( name=>'skipAttributes', required=>0, allowUndef=>1, parameters=>\%parameters, caller=>$METHOD, response=>$response );
   #### Die if any unexpected parameters are passed
   my $unexpectedParameters = '';
   foreach my $parameter ( keys(%parameters) ) { $unexpectedParameters .= "ERROR: unexpected parameter '$parameter'\n"; }
@@ -662,6 +729,15 @@ sub getOutliers {
   my $outliers;
   my $nOutlierFiles;
 
+  #### If the user specified some attributes to skip, create a hash of them
+  my %attributesToSkip = ();
+  if ( $skipAttributes ) {
+    my @attributes = split(/[,;]/,$skipAttributes);
+    foreach my $attribute ( @attributes ) {
+      $attributesToSkip{$attribute} = 1;
+    }
+  }
+
   #### For each fileType, signature, and attribute, record if any deviations are outliers
   foreach my $fileType ( keys(%{$qckb->{fileTypes}}) ) {
     $outliers->{fileTypes}->{$fileType}->{nFiles} = 0;
@@ -672,6 +748,9 @@ sub getOutliers {
     #### Loop over the signatures and attributes
     foreach my $signature ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}}) ) {
       foreach my $attribute ( keys(%{$qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}}) ) {
+
+        #### Skip this one if requested
+        next if ( $attributesToSkip{"$signature.$attribute"} );
 
         #print "$signature.$attribute:\n";
         my $model = $qckb->{fileTypes}->{$fileType}->{signatures}->{$signature}->{$attribute}->{model};
@@ -1033,6 +1112,42 @@ sub parsePlugins {
 
   #### BEGIN CUSTOMIZATION. DO NOT EDIT MANUALLY ABOVE THIS. EDIT MANUALLY ONLY BELOW THIS.
 
+  $isImplemented = 1;
+  my $qckb = $self->getQckb();
+
+  #### Plugin models are not yet supported
+  if ( $pluginModels ) {
+    $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'pluginModelsNotYetSupported', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+       message=>"Although the option is listed, the option pluginModels is not yet written. Coming soon..");
+    return $response;
+  }
+
+  #### Parse the pluginSignatures and if okay store in the KB
+  if ( $pluginSignatures ) {
+    my @commands = split(/;/,$pluginSignatures);
+    foreach my $command ( @commands ) {
+      my ($condition,$executable) = split(/=/,$command);
+      if ( $condition && $executable ) {
+        my ($fileType,$mode) = split(/:/,$condition);
+        if ( $fileType && $mode ) {
+          if ( -e $executable ) {
+            push( @{$qckb->{pluginSignatures}->{$fileType}->{$mode}}, $executable);
+          } else {
+           $response->logEvent( level=>'WARNING', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+            message=>"Specified external plugin executable '$executable' does not exist as a single file, although might be a compound command");
+            push( @{$qckb->{pluginSignatures}->{$fileType}->{$mode}}, $executable);
+         }
+        } else {
+          $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'PluginSignatureMIssingColon', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+            message=>"Each pluginSignatures must have an = in it in the form condition=executable");
+       }
+
+      } else {
+        $response->logEvent( status=>'ERROR', level=>'ERROR', errorCode=>'PluginSignatureMissingEqualSign', verbose=>$verbose, debug=>$debug, quiet=>$quiet, outputDestination=>$outputDestination, 
+          message=>"Each pluginSignatures must have an = in it in the form condition=executable");
+      }
+    }
+  }
 
   #### END CUSTOMIZATION. DO NOT EDIT MANUALLY BELOW THIS. EDIT MANUALLY ONLY ABOVE THIS.
   {
@@ -1123,6 +1238,7 @@ sub saveKb {
 
   use JSON;
   my $json = JSON->new->allow_nonref;
+  $json->canonical();
   my $buffer = $json->pretty->encode($qckb);
   $filename = "$kbRootPath.qckb.json";
   open(OUTFILE,">$filename");
@@ -1359,55 +1475,6 @@ sub show {
 }
 
 
-sub splitFilePath {
-###############################################################################
-# splitFilePath
-###############################################################################
-  my $METHOD = 'splitFilePath';
-  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
-  my $self = shift || die ("self not passed");
-  my $filePath = shift;
-
-  my %components;
-
-  #### Parse off the directory
-  my @pathParts = split(/\//,$filePath);
-  my $directory = join("\/",@pathParts[0..($#pathParts-1)]);
-  my $entry = $pathParts[$#pathParts];
-
-  #### Parse the filename into pieces
-  my @parts = split(/\./,$entry);
-  my $nParts = scalar(@parts);
-  my $basename = '';
-  my $extension = '';
-  my $uncompressedExtension = '';
-  my $isCompressed = 0;
-  if ( $nParts == 1) {
-    $basename = $entry;
-  } else {
-    $extension = $parts[$nParts-1];
-    my %compressedExtensions = ( gz=>1, zip=>1, bz2=>1 );
-    if ( $compressedExtensions{$extension} ) {
-      $isCompressed = 1;
-      if ( $nParts == 2 ) {
-        $basename = $parts[0];
-      } else {
-        $uncompressedExtension = $parts[$nParts-2];
-        $basename = join(".",@parts[0..$nParts-3]);
-      }
-    } else {
-      $uncompressedExtension = $extension;
-      $basename = join(".",@parts[0..$nParts-2]);
-    }
-  }
-
-  my $components = { directory=>$directory, basename=>$basename, extension=>$extension, uncompressedExtension=>$uncompressedExtension,
-    isCompressed=>$isCompressed, filename=>$entry };
-
-  print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $DEBUG );
-  return $components;
-}
-
 sub flattenAttributes {
 ###############################################################################
 # flattenAttributes
@@ -1488,7 +1555,54 @@ sub flattenAttributes {
   
   return $result;
 }
+sub splitFilePath {
+###############################################################################
+# splitFilePath
+###############################################################################
+  my $METHOD = 'splitFilePath';
+  print "DEBUG: Entering $CLASS.$METHOD\n" if ( $DEBUG );
+  my $self = shift || die ("self not passed");
+  my $filePath = shift;
 
-  
+  my %components;
+
+  #### Parse off the directory
+  my @pathParts = split(/\//,$filePath);
+  my $directory = join("\/",@pathParts[0..($#pathParts-1)]);
+  my $entry = $pathParts[$#pathParts];
+
+  #### Parse the filename into pieces
+  my @parts = split(/\./,$entry);
+  my $nParts = scalar(@parts);
+  my $basename = '';
+  my $extension = '';
+  my $uncompressedExtension = '';
+  my $isCompressed = 0;
+  if ( $nParts == 1) {
+    $basename = $entry;
+  } else {
+    $extension = $parts[$nParts-1];
+    my %compressedExtensions = ( gz=>1, zip=>1, bz2=>1 );
+    if ( $compressedExtensions{$extension} ) {
+      $isCompressed = 1;
+      if ( $nParts == 2 ) {
+        $basename = $parts[0];
+      } else {
+        $uncompressedExtension = $parts[$nParts-2];
+        $basename = join(".",@parts[0..$nParts-3]);
+      }
+    } else {
+      $uncompressedExtension = $extension;
+      $basename = join(".",@parts[0..$nParts-2]);
+    }
+  }
+
+  my $components = { directory=>$directory, basename=>$basename, extension=>$extension, uncompressedExtension=>$uncompressedExtension,
+    isCompressed=>$isCompressed, filename=>$entry };
+
+  print "DEBUG: Exiting $CLASS.$METHOD\n" if ( $DEBUG );
+  return $components;
+}
+
 ###############################################################################
 1;
