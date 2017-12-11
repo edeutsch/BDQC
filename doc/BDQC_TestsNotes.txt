@@ -45,9 +45,9 @@ perl ../bin/bdqc.pl --kbRootPath test4_jpgs --showOutliers
 
 #### A fifth test importing pre-existing .bdqc data from the Python version
 rm test5_PythonBdqcImport.qckb.storable
-perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --import Complete.filteredCNVs1000
+perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --importSig Complete.filteredCNVs1000
 perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --collate --calcModel
-perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --showOutliers
+perl ../bin/bdqc.pl --kbRootPath test5_PythonBdqcImport --showOutliers --skipAttributes "tracking.dataDirectory"
 
 #### A sixth test for testing out the example custom external signature
 rm  test6_CustomSignature.qckb.storable
