@@ -40,10 +40,13 @@ class BDQC.KB
   method calcSignatures
     returns object Response
   method calcModels
+    parameter string skipAttributes optional
     returns object Response
   method collateData
+    parameter string skipAttributes optional
     returns object Response
   method getOutliers
+    parameter string skipAttributes optional
     returns object Response
   method parsePlugins
     parameter string pluginSignatures optional
