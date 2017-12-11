@@ -41,7 +41,16 @@ Options:
   --collateData       Collate all the data from individual files in preparation for modeling
   --calcModels        Calculate file signature models for all files in the QC KB
   --pluginModels      Substitute the default internal models and outlier detection with an external program
-  --pluginSignatures  Substitute the default internal signature calculators with an external program
+                        (not yet implemented)
+  --pluginSignatures  Substitute or add the default signature calculators with an external program
+                      Use format "<fileType>:<operation>=<command>;..."
+                        <fileType> can be any one fileType (e.g. tsv) or "*all" to apply to all
+                        <operation> is either add (append another sig calc) or set (cancel default/previous and set)
+                        <command> is a shell command that will be run to calculate a signature. Response must be correct JSON to STDOUT
+                        e.g. "*all:add=perl ../bin/customBinarySignatureExample.pl"
+  --skipAttributes x  Semi-colon separated list of signatures/attributes to skip in the collation,
+                      modeling, or outlier reporting (e.g. "extrinsic.mtime;tracking.dataDirectory" to skip
+                      collation, model, or outlier reporting of the file modification times and directory names.
   --showOutliers      Show all outliers in the QC KB
 
  e.g.:  $PROG_NAME --kbRootPath testqc --dataDirectory test1
@@ -53,7 +62,7 @@ my %OPTIONS;
 unless (GetOptions(\%OPTIONS,"help","verbose:i","quiet","debug:i","testonly",
                    "kbRootPath:s", "dataDirectory:s", "calcSignatures", "collateData",
                    "calcModels", "showOutliers", "importSignatures:s", "importLimit:i",
-                   "pluginModels:s", "pluginSignatures:s", 
+                   "pluginModels:s", "pluginSignatures:s", "skipAttributes:s", 
   )) {
   print "$USAGE";
   exit 2;
@@ -110,27 +119,27 @@ sub main {
     $response->mergeResponse( sourceResponse=>$result );
   }
 
-  #### Important signatures from an external file into the KB
+  #### Import signatures from an external file into the KB
   if ( $result->{status} eq 'OK' && $OPTIONS{importSignatures} ) {
     my $result = $qckb->importSignatures( inputFile=>$OPTIONS{importSignatures}, importLimit=>$OPTIONS{importLimit}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
   }
 
-  #### Calculate models and outliers for all files in the KB by filetype
+  #### Collate all attributes for all files in the KB by filetype into a form ready to model
   if ( $result->{status} eq 'OK' && $OPTIONS{collateData} ) {
-    my $result = $qckb->collateData( verbose => $verbose, quiet=>$quiet, debug=>$debug );
+    my $result = $qckb->collateData( skipAttributes=>$OPTIONS{skipAttributes}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### Calculate models and outliers for all files in the KB by filetype
   if ( $result->{status} eq 'OK' && $OPTIONS{calcModels} ) {
-    my $result = $qckb->calcModels( verbose => $verbose, quiet=>$quiet, debug=>$debug );
+    my $result = $qckb->calcModels( skipAttributes=>$OPTIONS{skipAttributes}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
   }
 
   #### Show the deviations found in the data
   if ( $result->{status} eq 'OK' && $OPTIONS{showOutliers} ) {
-    my $result = $qckb->getOutliers( verbose => $verbose, quiet=>$quiet, debug=>$debug );
+    my $result = $qckb->getOutliers( skipAttributes=>$OPTIONS{skipAttributes}, verbose => $verbose, quiet=>$quiet, debug=>$debug );
     $response->mergeResponse( sourceResponse=>$result );
   }
 
